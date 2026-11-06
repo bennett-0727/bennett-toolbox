@@ -11,3 +11,4 @@ release/
 
 vendor/markitdown/markitdown
 vendor/markitdown/markitdown.exe
+.markitdown-build/

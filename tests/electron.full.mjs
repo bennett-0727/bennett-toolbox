@@ -39,6 +39,15 @@ async function clickButton(scope, text) {
   await scope.locator("button", { hasText: text }).first().click();
 }
 
+async function setRange(locator, value) {
+  await locator.evaluate((el, next) => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    setter.call(el, next);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }, value);
+}
+
 async function downloadFrom(locator, timeout = 20000) {
   const waiter = app.evaluate(
     () =>
@@ -172,7 +181,7 @@ test("侧边栏拖拽排序并持久化", async () => {
 test("JSON 格式化：格式化、压缩、复制、清空、错误提示", async () => {
   await openModule("JSON 格式化");
   const input = page.locator("textarea.json-input");
-  const source = '{"name":"张三","age":25,"tags":["a","b"]}';
+  const source = '{"name":"张三","age":25,"tags":["a","b"],"active":true,"extra":null,"score":1.5}';
 
   await input.fill(source);
   await clickButton(page.locator(".json-formatter-header"), "格式化");
@@ -180,6 +189,9 @@ test("JSON 格式化：格式化、压缩、复制、清空、错误提示", asy
   const keys = await page.locator(".json-key").allTextContents();
   assert.ok(keys.includes('"name"'));
   assert.ok(keys.includes('"tags"'));
+  assert.equal(await page.locator(".json-boolean").first().textContent(), "true");
+  assert.equal(await page.locator(".json-null").first().textContent(), "null");
+  assert.equal(await page.locator(".json-number").nth(1).textContent(), "1.5");
 
   await clickButton(page.locator(".json-formatter-header"), "压缩");
   assert.equal(await input.inputValue(), JSON.stringify(JSON.parse(source)));
@@ -266,6 +278,22 @@ test("图片转换：PNG/HEIC 转 WebP、SVG 代码复制与下载", async () =>
   await page.waitForSelector(".image-batch-card");
   await page.locator(".batch-convert-btn").click();
   await waitForText(".batch-success", "张已转换");
+  const heicOutput = await downloadFrom(
+    page.locator(".image-batch-card").first().locator("button", { hasText: "下载" }),
+  );
+  assert.match(heicOutput, /\.jpg$/i);
+  assertJpeg(heicOutput);
+
+  await clickButton(page.locator(".image-converter-header"), "清空");
+  await uploadFiles("picture.jpg");
+  await page.waitForSelector(".image-batch-card");
+  await page.locator(".batch-format-selector .format-btn", { hasText: "PNG" }).click();
+  await page.locator(".batch-convert-btn").click();
+  await waitForText(".batch-success", "张已转换");
+  const pngOutput = await downloadFrom(
+    page.locator(".image-batch-card").first().locator("button", { hasText: "下载" }),
+  );
+  assertPng(pngOutput);
 
   await clickButton(page.locator(".image-converter-header"), "清空");
   await uploadFiles("icon.svg");
@@ -388,6 +416,13 @@ test("文件搜索：目录选择、搜索、清空", async () => {
   );
 
   await page.locator(".depth-select").selectOption("3");
+  await page.waitForFunction(
+    () => document.querySelectorAll(".result-item").length === 2,
+    null,
+    { timeout: 20000 },
+  );
+
+  await page.locator(".search-input").fill("REPORT");
   await page.waitForFunction(
     () => document.querySelectorAll(".result-item").length === 2,
     null,
@@ -576,6 +611,7 @@ test("图片转换：非法文件、JPG 输出、多文件与单张下载", asyn
   await uploadFiles("photo.png", "picture.jpg");
   await page.waitForFunction(() => document.querySelectorAll(".image-batch-card").length === 2);
   await page.locator(".batch-format-selector .format-btn", { hasText: "JPG" }).click();
+  await setRange(page.locator(".batch-quality-control input[type=range]"), "50");
   await page.locator(".batch-convert-btn").click();
   await page.waitForFunction(
     () => document.querySelectorAll(".image-batch-card .format-badge.success").length === 2,
@@ -603,8 +639,8 @@ test("图片压缩：非法文件、JPG 输出与单张下载", async () => {
   await waitForText(".compress-error-box", "请选择支持的图片文件");
 
   await clickButton(page.locator(".image-compressor-header"), "清空");
-  await uploadFiles("big.jpg");
-  await page.waitForSelector(".compress-card");
+  await uploadFiles("big.jpg", "picture.jpg");
+  await page.waitForFunction(() => document.querySelectorAll(".compress-card").length === 2);
   await page.locator(".compress-format-buttons .format-btn", { hasText: "JPG" }).click();
   await clickButton(page.locator(".compress-control-body"), "批量压缩");
   await page.waitForSelector(".compress-result-meta", { timeout: 60000 });
@@ -614,6 +650,13 @@ test("图片压缩：非法文件、JPG 输出与单张下载", async () => {
   );
   assert.match(single, /\.jpg$/i);
   assertJpeg(single);
+
+  const zip = await downloadFrom(
+    page.locator(".compress-actions button", { hasText: "下载全部 ZIP" }),
+  );
+  const entries = await zipEntries(zip);
+  assert.equal(entries.length, 2);
+  assert.ok(entries.every((entry) => entry.endsWith(".jpg")));
 });
 
 test("图片去水印：画笔模式与下载", async () => {
@@ -930,6 +973,25 @@ test("屏幕取色：不支持提示、历史回选与持久化", async () => {
   await page.waitForSelector(".empty-history");
 });
 
+test("屏幕取色：取消取色与损坏历史回退", async () => {
+  await page.evaluate(() => localStorage.setItem("bennett-color-history", "{bad"));
+  await page.reload();
+  await openModule("屏幕取色");
+  await page.waitForSelector(".empty-history");
+
+  await page.evaluate(() => {
+    window.EyeDropper = class {
+      open() {
+        return Promise.reject(new Error("cancelled"));
+      }
+    };
+  });
+  await page.locator(".pick-btn-overlay").click();
+  await page.waitForFunction(() => !document.querySelector(".pick-btn-overlay")?.disabled);
+  assert.equal(await page.locator(".history-item").count(), 0);
+  assert.equal(await page.locator(".error-message").count(), 0);
+});
+
 test("侧边栏：损坏的本地顺序回退默认", async () => {
   await page.evaluate(() => localStorage.setItem("bennett-module-order", "{bad"));
   await page.reload();
@@ -959,6 +1021,17 @@ test("主进程 IPC 错误路径", async () => {
     window.require("electron").ipcRenderer.invoke("convert-file-to-markdown", "/tmp/does-not-exist.pdf"),
   );
   assert.equal(missingDoc.success, false);
+
+  const heicJpg = await page.evaluate(
+    (heicPath) =>
+      window.require("electron").ipcRenderer.invoke("convert-heic-image", {
+        filePath: heicPath,
+        targetFormat: "jpg",
+      }),
+    "/Users/pms/bennett/bennett-toolbox-source/recovered/tests/fixtures/photo.heic",
+  );
+  assert.equal(heicJpg.success, true);
+  assert.match(heicJpg.dataUrl, /^data:image\/jpeg/);
 });
 
 test("PDF 清晰度倍率影响输出尺寸", async () => {
@@ -1000,11 +1073,12 @@ test("视频转 GIF：自定义宽度", async () => {
   await openModule("视频转 GIF");
   await uploadFiles("clip.webm");
   await page.waitForSelector(".video-summary");
-  const widthSlider = page.locator(".gif-settings-card input[type=range]").nth(3);
-  await widthSlider.evaluate((el) => {
-    el.value = "320";
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-  });
+  const sliders = page.locator(".gif-settings-card input[type=range]");
+  await setRange(sliders.nth(0), "0.5");
+  await setRange(sliders.nth(1), "1");
+  await setRange(sliders.nth(2), "5");
+  await setRange(sliders.nth(3), "320");
+  await setRange(sliders.nth(4), "32");
   await clickButton(page.locator(".gif-settings-card"), "生成 GIF");
   await page.waitForSelector(".gif-preview-image", { timeout: 60000 });
   const width = await page
@@ -1074,6 +1148,79 @@ test("文档转 Markdown：真实转换器", { skip: !fs.existsSync(REAL_MARKITD
       }));
     }, path.join(FIX, "doc.txt"));
   }
+});
+
+test("图片去水印：非法文件与参数调整", async () => {
+  await openModule("图片去水印");
+  await uploadFiles("doc.txt");
+  await waitForText(".error-box", "请选择图片文件");
+
+  await clickButton(page.locator(".watermark-removal-header"), "清空");
+  await uploadFiles("photo.png");
+  await page.waitForSelector(".watermark-mask-canvas");
+  const sliders = page.locator(".watermark-setting-field input[type=range]");
+  await setRange(sliders.nth(0), "14");
+  await setRange(sliders.nth(1), "4");
+  await clickButton(page.locator(".tool-mode-switch"), "框选");
+  const mask = page.locator(".watermark-mask-canvas");
+  const box = await mask.boundingBox();
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.65, { steps: 6 });
+  await page.mouse.up();
+  await clickButton(page.locator(".watermark-actions"), "去除水印");
+  await page.waitForSelector(".watermark-result-preview img", { timeout: 60000 });
+  const image = await downloadFrom(page.locator(".watermark-download-btn"));
+  assertPng(image);
+});
+
+test("PDF：损坏文件与 JPG 质量", async () => {
+  await openModule("PDF 转图片");
+  await uploadFiles("corrupt.pdf");
+  await page.waitForSelector(".error-box", { timeout: 30000 });
+
+  await clickButton(page.locator(".pdf-to-images-header"), "清空");
+  await uploadFiles("doc.pdf");
+  await page.waitForSelector(".pdf-file-name");
+  await page.locator(".pdf-format-switch button", { hasText: "JPG" }).click();
+  await setRange(page.locator(".pdf-setting-field input[type=range]").nth(1), "60");
+  await clickButton(page.locator(".pdf-settings-card"), "转换全部页面");
+  await page.waitForSelector(".pdf-page-card", { timeout: 60000 });
+  const image = await downloadFrom(
+    page.locator(".pdf-page-card").first().locator("button", { hasText: "下载" }),
+  );
+  assertJpeg(image);
+});
+
+test("文档转 Markdown：拖拽文件与编辑后保存", async () => {
+  await openModule("文档转 MD", "文档转 Markdown");
+  await page.evaluate(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.id = "e2e-drop-file";
+    document.body.appendChild(input);
+  });
+  await page.locator("#e2e-drop-file").setInputFiles(path.join(FIX, "doc.txt"));
+  await page.evaluate(() => {
+    const input = document.getElementById("e2e-drop-file");
+    const transfer = new DataTransfer();
+    transfer.items.add(input.files[0]);
+    document.querySelector(".document-drop-zone").dispatchEvent(
+      new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }),
+    );
+    input.remove();
+  });
+  await page.waitForSelector(".document-summary");
+  await clickButton(page.locator(".document-summary"), "转换为 Markdown");
+  await page.waitForFunction(
+    () => document.querySelector(".markdown-output")?.value?.includes("Converted"),
+  );
+  await page.locator(".markdown-output").fill("# Edited markdown");
+  const md = await downloadFrom(
+    page.locator(".document-converter-header button", { hasText: "保存 .md" }),
+  );
+  assert.equal(fs.readFileSync(downloadPath(md), "utf8"), "# Edited markdown");
+  await clickButton(page.locator(".document-converter-header"), "清空");
 });
 
 test("文档转 Markdown：转换失败提示", async () => {

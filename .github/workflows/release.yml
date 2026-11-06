@@ -48,6 +48,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup Python
+        if: ${{ !(matrix.platform == 'mac' && matrix.arch == 'arm64') }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Prepare MarkItDown
+        env:
+          MATRIX_PLATFORM: ${{ matrix.platform }}
+          MATRIX_ARCH: ${{ matrix.arch }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/prepare-markitdown.mjs
+
       - name: Sync version from tag
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash

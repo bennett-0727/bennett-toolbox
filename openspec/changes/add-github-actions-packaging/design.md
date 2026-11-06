@@ -47,6 +47,11 @@
    - 先执行 `npm ci`、`npm run build`（含 `tsc --noEmit`）、`npm run build:electron`，再做平台打包。
    - Node 版本使用 26（项目验证版本 26.13.0，`engines >=24.8.0`）。
 
+7. **MarkItDown 二进制准备**
+   - macOS arm64 从 `markitdown-binaries` Release 资源下载；其余平台在 CI 用 PyInstaller 构建。
+   - 产物放入 `vendor/markitdown/`，通过 `extraResources` 打进安装包。
+   - Windows arm64 使用 x64 转换器，依赖系统 x64 仿真。
+
 ## Risks / Trade-offs
 
 - **Windows arm64 交叉打包兼容性** → 使用最新 electron-builder；若 CI 失败，改用 `windows-11-arm` runner 原生构建。

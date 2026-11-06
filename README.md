@@ -48,7 +48,7 @@
 - `npx tsc --noEmit` 0 错误
 - `npx vite build` 成功
 - 浏览器 e2e：3/3 通过
-- Electron 打包版功能 e2e：36/36 通过（11 个模块 + 侧边栏 + 主进程 IPC）
+- Electron 打包版功能 e2e：40/40 通过（11 个模块 + 侧边栏 + 主进程 IPC）
 - Electron 打包版冒烟 e2e：7/7 通过
 - `npm run build:electron` 成功
 
@@ -60,7 +60,7 @@ npm run setup:markitdown  # 可选：准备文档转换器（文档转 MD 需要
 npm run dev              # 前端开发服务器 http://127.0.0.1:5173
 npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
-npm run test:electron    # Electron 功能测试（36 项，需先构建）
+npm run test:electron    # Electron 功能测试（40 项，需先构建）
 npm run test:electron:smoke  # Electron 冒烟测试（7 项）
 ```
 
@@ -150,4 +150,4 @@ npm run package:win   # NSIS exe
 
 1. 渲染进程通过 `ipcRenderer` / `ipcMain` 与主进程通信，通道定义见 `electron/main.ts`。
 2. 当前启用 `nodeIntegration: true`、`contextIsolation: false`，渲染进程可直接使用 `window.require`；请勿加载不可信页面。
-3. MarkItDown：本地执行 `npm run setup:markitdown`，或把可执行文件放到 `vendor/markitdown/markitdown`；打包时通过 `extraResources` 打入应用。GitHub CI 目前不会自动提供该二进制。
+3. MarkItDown：本地执行 `npm run setup:markitdown`；CI 中 macOS arm64 从 Release 资源下载，其他平台用 PyInstaller 构建，打包时通过 `extraResources` 打入应用。

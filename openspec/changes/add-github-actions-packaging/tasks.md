@@ -26,3 +26,4 @@
 - [x] 4.2 执行 `npm run typecheck`、`npm run build`、`npm run test:e2e`，确认现有测试无回归
 - [ ] 4.3（需推送授权）在 GitHub 手动触发 workflow，确认 4 个矩阵任务全部成功且 artifacts 可下载
 - [ ] 4.4（需推送授权）推送下一个 `v*` tag，确认 Release 附带 macOS 与 Windows 全部产物
+- [ ] 2.7 增加 MarkItDown 准备步骤（macOS arm64 下载 Release 资源，其他平台 PyInstaller 构建），确认打包产物包含转换器
