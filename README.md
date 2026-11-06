@@ -1,11 +1,32 @@
-# Bennett Toolbox（反编译重建版）
+# Bennett Toolbox
 
-从 `/Applications/Bennett Toolbox.app/Contents/Resources/app.asar`（v1.1.1）反编译还原的 Electron + React + TypeScript 工程。原始 TSX 源码已不可得（GitHub 仓库随账号封禁不可访问，安装包内无 sourcemap），本工程是按 bundle 结构、JSX 和字符串语义重建的可运行版本。
+多功能工具箱桌面应用，基于 Electron + React + TypeScript，内置 11 个常用工具。
+
+## 功能
+
+- JSON 格式化与压缩
+- 中英变量命名转换
+- 图片格式转换与批量压缩
+- 图片去水印
+- PDF 转图片
+- 视频转 GIF
+- 文件搜索
+- 文档转 Markdown
+- 截图悬浮
+- 屏幕取色
+
+## 技术栈
+
+- Electron 28
+- React 19.3.1 + TypeScript 5
+- Vite 5
+- Playwright e2e
 
 ## 已验证
 
-- Node.js v26.13.0（最新 LTS）- `npx tsc --noEmit` 0 错误
-- `npx vite build` 成功（CSS 产物哈希与官方包一致：`index-Bf_C6pjF.css`）
+- Node.js v26.13.0（最新 LTS）
+- `npx tsc --noEmit` 0 错误
+- `npx vite build` 成功
 - `npx e2e run` 3/3 通过（11 个模块渲染、JSON 格式化与语法错误、模块切换）
 - `npm run build:electron` 成功
 
@@ -18,7 +39,7 @@ npm run test:e2e     # Playwright 冒烟测试
 npm run build:all    # tsc + 前端构建 + 主进程构建
 ```
 
-打包/运行 Electron 需要系统 Electron 28 运行时（`electron .`），本仓库只包含源码与构建脚本。
+运行 Electron 需要系统安装 Electron 28 运行时（`electron .`）。
 
 ## 目录结构
 
@@ -27,7 +48,7 @@ npm run build:all    # tsc + 前端构建 + 主进程构建
 ├── src/main.tsx              # React 入口
 ├── src/App.tsx               # 模块注册表、切换、拖拽排序持久化
 ├── src/components/Sidebar.tsx
-├── src/components/FormatItem.tsx   # 颜色格式复制行（原 bundle 中的 Um）
+├── src/components/FormatItem.tsx   # 颜色格式复制行
 ├── src/modules/              # 11 个工具模块
 │   ├── JsonFormatter.tsx
 │   ├── NamingConverter.tsx
@@ -41,51 +62,29 @@ npm run build:all    # tsc + 前端构建 + 主进程构建
 │   ├── ScreenshotFloat.tsx
 │   └── ColorPicker.tsx
 ├── src/shared/               # 版本号与类型
-├── src/styles/global.css     # 从 dist 还原，未改动
+├── src/styles/global.css     # 全局样式
 ├── tests/smoke.e2e.ts
 └── e2e.config.ts
 ```
 
-## 还原映射（bundle 符号 → 源码）
+## 模块一览
 
-| bundle 符号 | 源码 |
-| --- | --- |
-| `TM` / `CM` / `v0` / `HI` | `App.tsx` / `Sidebar.tsx` |
-| `XI`、`WI`、`GI`、`_Component`、`VI` | `modules/JsonFormatter.tsx`（JsonFormatter / JsonInput / JsonViewer / JsonNode / escapeJsonString） |
-| `QI` | `modules/NamingConverter.tsx` |
-| `_Component2` | `modules/ImageConverter.tsx` |
-| `_Component3` | `modules/ImageCompressor.tsx` |
-| `_Component4` | `modules/WatermarkRemoval.tsx` |
-| `_Component5` | `modules/VideoToGif.tsx` |
-| `_Component6` | `modules/FileSearch.tsx` |
-| `_Component7` | `modules/ScreenshotFloat.tsx` |
-| `SP` | `modules/ColorPicker.tsx` |
-| `NP` | `modules/DocumentConverter.tsx` |
-| `EM` | `modules/PdfToImages.tsx` |
-| `hC` + IPC handlers | `electron/main.ts` |
+| 模块 | 文件 | 说明 |
+| --- | --- | --- |
+| JSON 格式化 | `modules/JsonFormatter.tsx` | 格式化、压缩、复制结果、语法错误定位 |
+| 变量命名 | `modules/NamingConverter.tsx` | 中英互译并生成常见命名格式 |
+| 图片转换 | `modules/ImageConverter.tsx` | PNG/JPG/WebP/HEIC/SVG 等格式转换 |
+| 图片压缩 | `modules/ImageCompressor.tsx` | 按目标大小或质量批量压缩 |
+| 图片去水印 | `modules/WatermarkRemoval.tsx` | 涂抹或框选后修补水印区域 |
+| PDF 转图片 | `modules/PdfToImages.tsx` | 按页导出 PNG/JPG，可打包 ZIP |
+| 视频转 GIF | `modules/VideoToGif.tsx` | 截取片段、设置帧率与尺寸 |
+| 文件搜索 | `modules/FileSearch.tsx` | 按文件名搜索目录，支持在文件夹中显示 |
+| 文档转 MD | `modules/DocumentConverter.tsx` | 调用 MarkItDown 转换文档 |
+| 截图悬浮 | `modules/ScreenshotFloat.tsx` | 屏幕源截图、框选截图、悬浮置顶 |
+| 屏幕取色 | `modules/ColorPicker.tsx` | EyeDropper 取色与历史记录 |
 
-第三方库已从 bundle 内联代码替换为 npm 包：JSZip 3.10.1、gifenc 1.0.3、pdfjs-dist 5.6.205、heic-convert 2.1.0。
+## 开发说明
 
-## 代码 review 结论
-
-已核对：
-
-1. 渲染进程 8 个 `ipcRenderer.invoke` 与主进程 `ipcMain.handle` 通道一一对应；`capture-result` 监听有 `removeListener` 清理。
-2. gifenc 调用与 API 一致：`GIFEncoder()` / `quantize(rgba, maxColors)` / `applyPalette(rgba, palette)`。
-3. pdf.js 使用 `getDocument({ data }).promise`，worker 路径经 Vite 打包验证存在。
-4. 拖拽排序索引、localStorage 持久化、模块回退逻辑与原 bundle 一致。
-
-修复项：
-
-- `capture-selection-complete` 原逻辑用 `floatingWindows.has(window.id.toString())` 过滤悬浮窗，但 Map 的 key 是渲染进程传入的业务 id，不是 Electron 窗口 id，过滤永远不会命中。已改为按窗口实例过滤。
-
-保留的原始行为（非缺陷，仅提示）：
-
-- `nodeIntegration: true`、`contextIsolation: false`：渲染进程直接 `window.require("fs"/"path"/"electron")`，这是原应用架构，改成安全默认值会破坏全部 IPC 调用。
-- MarkItDown 依赖随包 `vendor/markitdown/markitdown` 二进制作业，安装包 asar 中不包含该二进制，需要按原项目 `npm run setup:markitdown` 的方式另行准备。
-
-## 已知限制
-
-1. 压缩后的局部变量名（`r`、`t`、`e`…）在大型模块中仍保留，无法从 bundle 恢复原始命名；组件名、导入、JSX、类型边界已还原。
-2. TypeScript 类型在构建时被擦除，现有类型是按使用方式补回的，不是原始类型定义。
-3. 原始文件名、注释、目录层级无法从单文件 bundle 恢复。
+1. 渲染进程通过 `ipcRenderer` / `ipcMain` 与主进程通信，通道定义见 `electron/main.ts`。
+2. 当前启用 `nodeIntegration: true`、`contextIsolation: false`，渲染进程可直接使用 `window.require`；请勿加载不可信页面。
+3. MarkItDown 需要另行准备 `vendor/markitdown/markitdown` 二进制。

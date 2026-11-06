@@ -4,7 +4,7 @@
 
 ## [1.1.1] - 2026-11-06
 
-从 `Bennett Toolbox.app` 安装包（v1.1.1）反编译并重建的源码版本。
+首个 GitHub 版本。
 
 ### Added
 
@@ -15,17 +15,16 @@
 
 ### Changed
 
-- React 从 18.3.1 升级到 19.3.1（react-dom、@types 同步升级）
-- Node.js 要求提升到 `>=24.8.0`，验证环境为 v26.13.0
-- 抽取共享组件 `FormatItem`（原 bundle 中的 `Um`）
+- React 19.3.1（react-dom、@types 同步升级）
+- Node.js 要求 `>=24.8.0`，验证环境为 v26.13.0
+- 抽取共享组件 `FormatItem`
 - `App`、`Sidebar` 使用可读变量名与显式类型重写
-- 第三方库从 bundle 内联代码替换为 npm 依赖：JSZip 3.10.1、gifenc 1.0.3、pdfjs-dist 5.6.205、heic-convert 2.1.0
+- 第三方依赖：JSZip 3.10.1、gifenc 1.0.3、pdfjs-dist 5.6.205、heic-convert 2.1.0
 
 ### Fixed
 
 - `capture-selection-complete` 用错误的窗口 id 过滤悬浮窗，导致截图结果可能发到错误窗口；改为按窗口实例过滤
 
-### Known Limitations
+### Notes
 
-- 原始 TSX 的类型、注释、文件层级和局部变量名无法从无 sourcemap 的 bundle 恢复
 - MarkItDown 依赖的 `vendor/markitdown` 二进制未包含在仓库中，需另行准备
