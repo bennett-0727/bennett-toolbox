@@ -117,7 +117,19 @@ function DocumentConverter() {
           });
           return;
         }
-        n(N.markdown || "");
+        const markdown = N.markdown || "";
+        if (!markdown.trim()) {
+          n("");
+          d(null);
+          i("未提取到 Markdown 内容：文件中没有可识别文本（图片型 PDF 需先 OCR）");
+          p({
+            value: 100,
+            label: "转换完成，无内容",
+            status: "error"
+          });
+          return;
+        }
+        n(markdown);
         d(N.command || null);
         p({
           value: 100,

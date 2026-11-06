@@ -419,21 +419,6 @@ test("文档转 Markdown：转换、复制、保存、失败提示", async () =>
   );
   assert.match(mdFile, /\.md$/i);
 
-  await app.evaluate(({ ipcMain }, failPath) => {
-    ipcMain.removeHandler("select-markitdown-file");
-    ipcMain.handle("select-markitdown-file", async () => ({
-      path: failPath,
-      name: "fail.txt",
-      size: 10,
-      extension: "TXT",
-    }));
-  }, path.join(FIX, "fail.txt"));
-
-  await clickButton(page.locator(".document-converter-header"), "清空");
-  await clickButton(page.locator(".document-drop-zone"), "选择文件");
-  await page.waitForSelector(".document-summary");
-  await clickButton(page.locator(".document-summary"), "转换为 Markdown");
-  await waitForText(".error-box", "boom", 30000);
 });
 
 test("截图悬浮：整屏截图、裁剪、悬浮窗、复制、删除", async () => {
@@ -810,6 +795,34 @@ test("文档转 Markdown：清空与不支持类型", async () => {
   await waitForText(".error-box", "暂不支持此文件类型");
 });
 
+test("文档转 Markdown：空内容提示", async () => {
+  await openModule("文档转 MD", "文档转 Markdown");
+  await app.evaluate(({ ipcMain }, emptyPath) => {
+    ipcMain.removeHandler("select-markitdown-file");
+    ipcMain.handle("select-markitdown-file", async () => ({
+      path: emptyPath,
+      name: "empty.txt",
+      size: 14,
+      extension: "TXT",
+    }));
+  }, path.join(FIX, "empty.txt"));
+  await clickButton(page.locator(".document-drop-zone"), "选择文件");
+  await page.waitForSelector(".document-summary");
+  await clickButton(page.locator(".document-summary"), "转换为 Markdown");
+  await waitForText(".error-box", "未提取到 Markdown 内容", 30000);
+  assert.equal(await page.locator(".markdown-output").inputValue(), "");
+
+  await app.evaluate(({ ipcMain }, goodPath) => {
+    ipcMain.removeHandler("select-markitdown-file");
+    ipcMain.handle("select-markitdown-file", async () => ({
+      path: goodPath,
+      name: "doc.txt",
+      size: 17,
+      extension: "TXT",
+    }));
+  }, path.join(FIX, "doc.txt"));
+});
+
 test("截图悬浮：取消裁剪", async () => {
   await page.reload();
   await openModule("截图悬浮");
@@ -1003,4 +1016,85 @@ test("视频转 GIF：自定义宽度", async () => {
     page.locator(".gif-result-footer button", { hasText: "下载 GIF" }),
   );
   assertGif(gif);
+});
+
+const REAL_MARKITDOWN = "/Applications/Bennett Toolbox.app/Contents/Resources/markitdown/markitdown";
+
+test("文档转 Markdown：真实转换器", { skip: !fs.existsSync(REAL_MARKITDOWN) }, async () => {
+  const selectAndConvert = async (fileName) => {
+    await app.evaluate(({ ipcMain }, filePath) => {
+      ipcMain.removeHandler("select-markitdown-file");
+      ipcMain.handle("select-markitdown-file", async () => ({
+        path: filePath,
+        name: filePath.split("/").pop(),
+        size: 1,
+        extension: filePath.split(".").pop().toUpperCase(),
+      }));
+    }, path.join(FIX, fileName));
+    await clickButton(page.locator(".document-drop-zone"), "选择文件");
+    await page.waitForSelector(".document-summary");
+    await clickButton(page.locator(".document-summary"), "转换为 Markdown");
+    await page.waitForFunction(
+      () => {
+        const label = document.querySelector(".progress-label")?.textContent || "";
+        return label.includes("完成") || label.includes("失败");
+      },
+      null,
+      { timeout: 60000 },
+    );
+  };
+
+  await openModule("文档转 MD", "文档转 Markdown");
+  await app.evaluate((_electron, bin) => {
+    process.env.MARKITDOWN_BIN = bin;
+  }, REAL_MARKITDOWN);
+  try {
+    await selectAndConvert("doc.txt");
+    assert.match(await page.locator(".markdown-output").inputValue(), /hello markitdown/);
+    await clickButton(page.locator(".document-converter-header"), "清空");
+
+    await selectAndConvert("multi.pdf");
+    assert.match(await page.locator(".markdown-output").inputValue(), /Page 1/);
+    await clickButton(page.locator(".document-converter-header"), "清空");
+
+    await selectAndConvert("doc.pdf");
+    await waitForText(".error-box", "未提取到 Markdown 内容", 60000);
+    assert.equal(await page.locator(".markdown-output").inputValue(), "");
+  } finally {
+    await app.evaluate((_electron, bin) => {
+      process.env.MARKITDOWN_BIN = bin;
+    }, MD_BIN);
+    await app.evaluate(({ ipcMain }, goodPath) => {
+      ipcMain.removeHandler("select-markitdown-file");
+      ipcMain.handle("select-markitdown-file", async () => ({
+        path: goodPath,
+        name: "doc.txt",
+        size: 17,
+        extension: "TXT",
+      }));
+    }, path.join(FIX, "doc.txt"));
+  }
+});
+
+test("文档转 Markdown：转换失败提示", async () => {
+  await openModule("文档转 MD", "文档转 Markdown");
+  await app.evaluate(({ ipcMain }, goodPath) => {
+    ipcMain.removeHandler("select-markitdown-file");
+    ipcMain.handle("select-markitdown-file", async () => ({
+      path: goodPath,
+      name: "doc.txt",
+      size: 17,
+      extension: "TXT",
+    }));
+    ipcMain.removeHandler("convert-file-to-markdown");
+    ipcMain.handle("convert-file-to-markdown", async () => ({
+      success: false,
+      error: "MarkItDown 转换失败：\nboom: cannot convert",
+    }));
+  }, path.join(FIX, "doc.txt"));
+  await clickButton(page.locator(".document-drop-zone"), "选择文件");
+  await page.waitForSelector(".document-summary");
+  await clickButton(page.locator(".document-summary"), "转换为 Markdown");
+  await waitForText(".error-box", "boom", 30000);
+  await waitForText(".progress-label", "转换失败");
 });

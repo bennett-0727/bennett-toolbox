@@ -8,3 +8,6 @@ dist-electron/
 .codegraph/
 graphify-out/
 release/
+
+vendor/markitdown/markitdown
+vendor/markitdown/markitdown.exe

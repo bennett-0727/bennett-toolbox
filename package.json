@@ -17,7 +17,8 @@
     "test:electron:smoke": "node tests/electron.smoke.mjs",
     "package:mac": "electron-builder --mac --publish never",
     "package:win": "electron-builder --win --publish never",
-    "screenshots": "node scripts/capture-screenshots.mjs"
+    "screenshots": "node scripts/capture-screenshots.mjs",
+    "setup:markitdown": "sh scripts/setup-markitdown.sh"
   },
   "dependencies": {
     "core-js": "^3.51.0",
@@ -77,6 +78,12 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "extraResources": [
+      {
+        "from": "vendor/markitdown",
+        "to": "markitdown"
+      }
+    ]
   }
 }
