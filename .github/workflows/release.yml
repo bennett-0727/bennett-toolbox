@@ -119,6 +119,7 @@ jobs:
     env:
       E2E_SKIP_SCREEN: "1"
       REAL_MARKITDOWN_BIN: ${{ github.workspace }}/vendor/markitdown/markitdown
+      ELECTRON_APP_PATH: ${{ github.workspace }}/release/mac/Bennett Toolbox.app/Contents/MacOS/Bennett Toolbox
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -131,12 +132,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Ensure Electron binary
-        run: |
-          node -e "const fs=require('fs');fs.rmSync('node_modules/electron/dist',{recursive:true,force:true});fs.rmSync('node_modules/electron/path.txt',{force:true})"
-          node node_modules/electron/install.js
-          node -e "console.log(require('electron'))"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -156,6 +151,11 @@ jobs:
       - name: Build main process
         run: npm run build:electron
 
+      - name: Package app for e2e
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --dir --mac --x64 --publish never
+
       - name: Run Electron e2e
         run: node tests/electron.full.mjs
 
@@ -165,6 +165,7 @@ jobs:
     env:
       E2E_SKIP_SCREEN: "1"
       REAL_MARKITDOWN_BIN: ${{ github.workspace }}/vendor/markitdown/markitdown.exe
+      ELECTRON_APP_PATH: ${{ github.workspace }}/release/win-unpacked/Bennett Toolbox.exe
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -177,12 +178,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Ensure Electron binary
-        run: |
-          node -e "const fs=require('fs');fs.rmSync('node_modules/electron/dist',{recursive:true,force:true});fs.rmSync('node_modules/electron/path.txt',{force:true})"
-          node node_modules/electron/install.js
-          node -e "console.log(require('electron'))"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -201,6 +196,11 @@ jobs:
 
       - name: Build main process
         run: npm run build:electron
+
+      - name: Package app for e2e
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --dir --win --x64 --publish never
 
       - name: Run Electron e2e
         run: node tests/electron.full.mjs
