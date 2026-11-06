@@ -3,6 +3,10 @@ import * as childProcess from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import heicConvert from "heic-convert";
+import { translate } from "../src/i18n/messages";
+
+let language: "zh-CN" | "en-US" = "zh-CN";
+const tr = (text: string) => translate(language, text);
 
 const MARKITDOWN_EXTENSIONS = ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "html", "htm", "txt", "csv", "json", "xml", "zip", "epub", "jpg", "jpeg", "png", "gif", "webp", "wav", "mp3"];
 const markitdownBinaryName = Q => Q === "win32" ? "markitdown.exe" : "markitdown";
@@ -25,7 +29,7 @@ const findMarkitdownCommands = Q => {
       D.push({
         command: o,
         argsPrefix: [],
-        label: "内置 MarkItDown"
+        label: tr("内置 MarkItDown")
       });
     }
   }
@@ -35,7 +39,7 @@ const sanitizeMarkitdownError = Q => Q.split(/\r?\n/).map(o => o.trimEnd()).filt
   const s = o.trim();
   return !!s && !s.startsWith("Traceback") && !s.startsWith("[PYI-") && !/^File ".*", line \d+/.test(s) && (!s.includes("pydub/utils.py") || !s.includes("RuntimeWarning"));
 }).map(o => o.replace(/^markitdown\._exceptions\.FileConversionException:\s*/, "")).join(`
-`) || "MarkItDown 转换失败";
+`) || tr("MarkItDown 转换失败");
 const floatingWindows = new Map();
 let selectionWindow = null;
 let isQuitting = false;
@@ -62,7 +66,7 @@ const runMarkitdown = (Q, D) => new Promise((o, s) => {
     if (!U) {
       U = true;
       N.kill();
-      s(new Error("转换超时，请确认文件大小或 MarkItDown 安装状态"));
+      s(new Error(tr("转换超时，请确认文件大小或 MarkItDown 安装状态")));
     }
   }, 120000);
   N.stdout.on("data", L => {
@@ -86,13 +90,13 @@ const runMarkitdown = (Q, D) => new Promise((o, s) => {
         o(a);
         return;
       }
-      s(new Error(R.trim() || `MarkItDown 退出码：${L}`));
+      s(new Error(R.trim() || tr(`MarkItDown 退出码：${L}`)));
     }
   });
 });
 const convertHeicWithSips = (Q: string, D: string) => new Promise<{ dataUrl: string; size: number }>((o, s) => {
   if (process.platform !== "darwin") {
-    s(new Error("HEIC 转换当前仅支持 macOS"));
+    s(new Error(tr("HEIC 转换当前仅支持 macOS")));
     return;
   }
   const N = D === "jpg" ? "jpg" : "png";
@@ -111,7 +115,7 @@ const convertHeicWithSips = (Q: string, D: string) => new Promise<{ dataUrl: str
       L = true;
       U.kill();
       e();
-      s(new Error("HEIC 转换超时"));
+      s(new Error(tr("HEIC 转换超时")));
     }
   }, 60000);
   U.stderr.on("data", f => {
@@ -131,7 +135,7 @@ const convertHeicWithSips = (Q: string, D: string) => new Promise<{ dataUrl: str
       clearTimeout(J);
       if (f !== 0) {
         e();
-        s(new Error(M.trim() || `sips 退出码：${f}`));
+        s(new Error(M.trim() || tr(`sips 退出码：${f}`)));
         return;
       }
       try {
@@ -174,12 +178,12 @@ const convertFileToMarkdown = async Q => {
   if (D.length === 0) {
     return {
       success: false,
-      error: "应用未找到随包 MarkItDown。请先运行 npm run setup:markitdown 生成内置转换器，再重新启动应用。",
+      error: tr("应用未找到随包 MarkItDown。请先运行 npm run setup:markitdown 生成内置转换器，再重新启动应用。"),
       sourcePath: Q,
       sourceName: path.basename(Q)
     };
   }
-  let o = "MarkItDown 转换失败";
+  let o = tr("MarkItDown 转换失败");
   for (const s of D) {
     try {
       return {
@@ -195,12 +199,16 @@ const convertFileToMarkdown = async Q => {
   }
   return {
     success: false,
-    error: `MarkItDown 转换失败：
-${sanitizeMarkitdownError(o)}`,
+    error: tr(`MarkItDown 转换失败：
+${sanitizeMarkitdownError(o)}`),
     sourcePath: Q,
     sourceName: path.basename(Q)
   };
 };
+electron.ipcMain.on("set-language", (_event, next) => {
+  if (next === "en-US" || next === "zh-CN") language = next;
+});
+
 function createMainWindow() {
   const Q = new electron.BrowserWindow({
     width: 1400,
@@ -248,10 +256,10 @@ electron.ipcMain.handle("select-markitdown-file", async () => {
   const Q = await electron.dialog.showOpenDialog({
     properties: ["openFile"],
     filters: [{
-      name: "MarkItDown 支持的文件",
+      name: tr("MarkItDown 支持的文件"),
       extensions: MARKITDOWN_EXTENSIONS
     }, {
-      name: "所有文件",
+      name: tr("所有文件"),
       extensions: ["*"]
     }]
   });
@@ -269,7 +277,7 @@ electron.ipcMain.handle("select-markitdown-file", async () => {
 });
 electron.ipcMain.handle("convert-file-to-markdown", async (Q, D) => !D || !fs.existsSync(D) ? {
   success: false,
-  error: "文件不存在或路径无效"
+  error: tr("文件不存在或路径无效")
 } : convertFileToMarkdown(D));
 electron.ipcMain.handle("convert-heic-image", async (Q, D) => {
   const {
@@ -279,13 +287,13 @@ electron.ipcMain.handle("convert-heic-image", async (Q, D) => {
   if (!o || !fs.existsSync(o)) {
     return {
       success: false,
-      error: "文件不存在或路径无效"
+      error: tr("文件不存在或路径无效")
     };
   }
   if (!["png", "jpg"].includes(s)) {
     return {
       success: false,
-      error: "HEIC 当前支持转换为 PNG 或 JPG"
+      error: tr("HEIC 当前支持转换为 PNG 或 JPG")
     };
   }
   try {
@@ -296,7 +304,7 @@ electron.ipcMain.handle("convert-heic-image", async (Q, D) => {
   } catch (N) {
     return {
       success: false,
-      error: N instanceof Error ? N.message : "HEIC 转换失败"
+      error: N instanceof Error ? N.message : tr("HEIC 转换失败")
     };
   }
 });
@@ -446,10 +454,10 @@ electron.ipcMain.handle("create-floating-window", async (Q, D) => {
 <body>
   <div class="container">
     <div class="titlebar">
-      <span class="title">悬浮截图</span>
+      <span class="title">${tr("悬浮截图")}</span>
       <div class="controls">
-        <button class="control-btn pin-btn active" id="pinBtn" title="取消置顶"></button>
-        <button class="control-btn close-btn" id="closeBtn" title="关闭"></button>
+        <button class="control-btn pin-btn active" id="pinBtn" title="${tr("取消置顶")}"></button>
+        <button class="control-btn close-btn" id="closeBtn" title="${tr("关闭")}"></button>
       </div>
     </div>
     <img src="${s}" draggable="false" />
@@ -467,7 +475,7 @@ electron.ipcMain.handle("create-floating-window", async (Q, D) => {
       isPinned = !isPinned;
       ipcRenderer.send('toggle-always-on-top', { id: '${o}', alwaysOnTop: isPinned });
       e.target.classList.toggle('active', isPinned);
-      e.target.title = isPinned ? '取消置顶' : '置顶';
+      e.target.title = isPinned ? ${JSON.stringify(tr("取消置顶"))} : ${JSON.stringify(tr("置顶"))};
     });
   <\/script>
 </body>
@@ -502,7 +510,7 @@ electron.ipcMain.handle("start-capture-selection", async () => {
     if (Q.length === 0) {
       return {
         success: false,
-        error: "无法获取屏幕"
+        error: tr("无法获取屏幕")
       };
     }
     const D = Q[0];
@@ -598,7 +606,7 @@ electron.ipcMain.handle("start-capture-selection", async () => {
     <div class="selection-preview" id="preview"></div>
     <div class="size-label" id="sizeLabel">0 × 0</div>
   </div>
-  <div class="hint">拖拽选择截图区域，ESC 取消</div>
+  <div class="hint">${tr("拖拽选择截图区域，ESC 取消")}</div>
   
   <script>
     const { ipcRenderer } = require('electron');

@@ -1,15 +1,18 @@
 import * as React from "react";
 import { APP_VERSION } from "../shared/version";
 import type { ModuleInfo } from "../shared/types";
+import { LANGUAGES, type Language } from "../i18n";
 
 interface SidebarProps {
   modules: ModuleInfo[];
   activeModule: string;
   onModuleSelect: (id: string) => void;
   onModuleReorder: (from: number, to: number) => void;
+  language: Language;
+  onLanguageChange: (language: Language) => void;
 }
 
-function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder }: SidebarProps) {
+function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, language, onLanguageChange }: SidebarProps) {
   const [draggingIndex, setDraggingIndex] = React.useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
   const draggedItemRef = React.useRef<HTMLElement | null>(null);
@@ -93,6 +96,23 @@ function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder }: Sid
         </div>
       </nav>
       <div className="sidebar-footer">
+        <div className="language-switch" role="group" aria-label="语言">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18" />
+          </svg>
+          {LANGUAGES.map((item) => (
+            <button
+              type="button"
+              key={item.value}
+              className={language === item.value ? "active" : ""}
+              aria-pressed={language === item.value}
+              onClick={() => onLanguageChange(item.value)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
         <span className="version">v{APP_VERSION}</span>
       </div>
     </aside>

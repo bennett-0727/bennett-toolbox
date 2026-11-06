@@ -64,6 +64,23 @@ async function clickButton(scope, text) {
   await scope.locator("button", { hasText: text }).first().click();
 }
 
+async function setWindowSize(width, height) {
+  const actual = await app.evaluate(({ BrowserWindow, screen }, size) => {
+    const area = screen.getPrimaryDisplay().workAreaSize;
+    const next = {
+      width: Math.min(size.width, area.width),
+      height: Math.min(size.height, area.height),
+    };
+    BrowserWindow.getAllWindows()[0].setContentSize(next.width, next.height);
+    return next;
+  }, { width, height });
+  await page.waitForFunction(
+    (size) => window.innerWidth >= size.width - 5 && window.innerHeight >= size.height - 5,
+    actual,
+  );
+  return actual;
+}
+
 async function setRange(locator, value) {
   await locator.evaluate((el, next) => {
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
@@ -1474,6 +1491,277 @@ test("截图悬浮：连续截图与悬浮窗缩放", { skip: SKIP_SCREEN }, asy
   );
   await page.locator(".screenshot-card").first().locator('button[title="删除"]').click();
   await page.locator(".screenshot-card").first().locator('button[title="删除"]').click();
+});
+
+test("国际化：英文覆盖全部模块并持久化", async () => {
+  await app.evaluate(({ ipcMain }, thumbnail) => {
+    ipcMain.removeHandler("get-desktop-sources");
+    ipcMain.handle("get-desktop-sources", async () => [
+      { id: "e2e-source", name: "Screen", thumbnail, appIcon: null },
+    ]);
+  }, "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lY2mAAAAAElFTkSuQmCC");
+
+  await page.reload();
+  await page.waitForSelector(".language-switch button");
+  await page.locator(".language-switch button", { hasText: "English" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "en-US");
+
+  const modules = [
+    ["JSON Formatter", "JSON Formatter"],
+    ["Variable Naming", "Variable Naming"],
+    ["Image Converter", "Image Converter"],
+    ["Image Compressor", "Batch Image Compression"],
+    ["Watermark Removal", "Watermark Removal"],
+    ["PDF to Images", "PDF to Images"],
+    ["Video to GIF", "Video to GIF"],
+    ["File Search", "File Search"],
+    ["Document to MD", "Document to Markdown"],
+    ["Screenshot Float", "Screenshot Float"],
+    ["Color Picker", "Screen Color Picker"],
+  ];
+
+  const cjkLines = (text) => text.split("\n").filter((line) => /[\u4e00-\u9fff]/.test(line));
+
+  for (const [nav, heading] of modules) {
+    await page.getByRole("button", { name: new RegExp(nav) }).click();
+    await page.waitForFunction(
+      (h) => (document.querySelector("h1.module-title")?.textContent || "").includes(h),
+      heading,
+    );
+    const text = await page.locator("main").innerText();
+    assert.deepEqual(cjkLines(text), [], `${nav} 仍存在中文: ${cjkLines(text).join(" | ")}`);
+    const attrs = await page.evaluate(() =>
+      [...document.querySelectorAll("main [placeholder], main [title], main [aria-label]")]
+        .flatMap((el) => [el.getAttribute("placeholder"), el.getAttribute("title"), el.getAttribute("aria-label")])
+        .filter((value) => value && /[\u4e00-\u9fff]/.test(value)),
+    );
+    assert.deepEqual(attrs, [], `${nav} 属性仍有中文`);
+  }
+
+  await page.getByRole("button", { name: /JSON Formatter/ }).click();
+  await page.locator("textarea.json-input").fill("{bad");
+  await waitForText(".error-message", "JSON syntax error");
+
+  await page.getByRole("button", { name: /Image Converter/ }).click();
+  await uploadFiles("documents/doc.txt");
+  await waitForText(".error-box", "Please select supported image files");
+
+  await page.getByRole("button", { name: /File Search/ }).click();
+  await page.locator(".path-input").fill(path.join(os.tmpdir(), "bennett-missing-en"));
+  await page.locator(".search-input").fill("report");
+  await waitForText(".error-box", "Search failed");
+
+  await page.getByRole("button", { name: /Color Picker/ }).click();
+  await page.evaluate(() => {
+    window.EyeDropper = undefined;
+  });
+  await page.locator(".pick-btn-overlay").click();
+  await waitForText(".error-message", "does not support the native color picker");
+
+  await page.reload();
+  await page.waitForSelector(".language-switch button");
+  assert.equal(await page.locator(".language-switch button", { hasText: "English" }).getAttribute("aria-pressed"), "true");
+  assert.equal(await page.locator(".nav-label").first().textContent(), "JSON Formatter");
+
+  await page.locator(".language-switch button", { hasText: "中文" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  assert.equal(await page.locator(".nav-label").first().textContent(), "JSON 格式化");
+});
+
+test("国际化：英文数据状态无中文", async () => {
+  const handler = (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ responseStatus: 200, responseData: { translatedText: "user profile" } }),
+    });
+  await page.route("**/api.mymemory.translated.net/**", handler);
+  await page.waitForSelector(".language-switch button");
+  await page.locator(".language-switch button", { hasText: "English" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "en-US");
+
+  const assertEnglish = async (label) => {
+    const text = await page.locator("main").innerText();
+    const cjk = text.split("\n").filter((line) => /[\u4e00-\u9fff]/.test(line));
+    assert.deepEqual(cjk, [], `${label} 仍存在中文: ${cjk.join(" | ")}`);
+  };
+
+  await page.getByRole("button", { name: /Variable Naming/ }).click();
+  await page.locator(".translate-input").fill("用户信息");
+  await page.locator(".translate-btn").click();
+  await page.waitForSelector(".result-value");
+  await assertEnglish("Naming results");
+
+  await page.getByRole("button", { name: /Image Converter/ }).click();
+  await uploadFiles("images/photo.png");
+  await page.waitForSelector(".image-batch-card");
+  await page.locator(".batch-format-selector .format-btn", { hasText: "WebP" }).click();
+  await page.locator(".batch-convert-btn").click();
+  await waitForText(".batch-success", "converted");
+  await assertEnglish("Image converter result");
+
+  await page.getByRole("button", { name: /Image Compressor/ }).click();
+  await uploadFiles("images/big.jpg");
+  await page.waitForSelector(".compress-card");
+  await clickButton(page.locator(".compress-control-body"), "Compress all");
+  await page.waitForSelector(".compress-result-meta", { timeout: 60000 });
+  await assertEnglish("Image compressor result");
+
+  await page.getByRole("button", { name: /Watermark Removal/ }).click();
+  await uploadFiles("images/photo.png");
+  await page.waitForSelector(".watermark-mask-canvas");
+  await clickButton(page.locator(".tool-mode-switch"), "Rectangle");
+  const mask = page.locator(".watermark-mask-canvas");
+  const box = await mask.boundingBox();
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.65, { steps: 6 });
+  await page.mouse.up();
+  await clickButton(page.locator(".watermark-actions"), "Remove watermark");
+  await page.waitForSelector(".watermark-result-preview img", { timeout: 60000 });
+  await assertEnglish("Watermark result");
+
+  await page.getByRole("button", { name: /PDF to Images/ }).click();
+  await uploadFiles("documents/doc.pdf");
+  await page.waitForSelector(".pdf-file-name");
+  await clickButton(page.locator(".pdf-settings-card"), "Convert all pages");
+  await page.waitForSelector(".pdf-page-card", { timeout: 60000 });
+  await assertEnglish("PDF result");
+
+  await page.getByRole("button", { name: /Video to GIF/ }).click();
+  await uploadFiles("video/clip.webm");
+  await page.waitForSelector(".video-summary");
+  await clickButton(page.locator(".gif-settings-card"), "Generate GIF");
+  await page.waitForSelector(".gif-preview-image", { timeout: 60000 });
+  await assertEnglish("Video result");
+
+  await page.getByRole("button", { name: /File Search/ }).click();
+  await page.locator(".path-input").fill(SEARCH_DIR);
+  await page.locator(".search-input").fill("report");
+  await page.waitForFunction(() => document.querySelectorAll(".result-item").length === 2);
+  await assertEnglish("File search result");
+
+  await page.getByRole("button", { name: /Document to MD/ }).click();
+  await clickButton(page.locator(".document-drop-zone"), "Select file");
+  await page.waitForSelector(".document-summary");
+  await clickButton(page.locator(".document-summary"), "Convert to Markdown");
+  await page.waitForFunction(
+    () => /Converted|hello markitdown/.test(document.querySelector(".markdown-output")?.value || ""),
+  );
+  await assertEnglish("Document result");
+
+  await page.getByRole("button", { name: /Color Picker/ }).click();
+  await page.evaluate(() => {
+    window.EyeDropper = class {
+      open() {
+        return Promise.resolve({ sRGBHex: "#3366ff" });
+      }
+    };
+  });
+  await page.locator(".pick-btn-overlay").click();
+  await page.waitForFunction(
+    () => document.querySelector(".color-value-large")?.textContent === "#3366FF",
+  );
+  await assertEnglish("Color picker result");
+
+  await page.locator(".language-switch button", { hasText: "中文" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  await page.unroute("**/api.mymemory.translated.net/**", handler);
+});
+
+test("国际化：主进程错误为英文", async () => {
+  await page.waitForSelector(".language-switch button");
+  await page.locator(".language-switch button", { hasText: "English" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "en-US");
+  await page.waitForTimeout(200);
+
+  const missing = await page.evaluate(() =>
+    window.require("electron").ipcRenderer.invoke("convert-heic-image", {
+      filePath: "/tmp/missing-i18n.heic",
+      targetFormat: "png",
+    }),
+  );
+  assert.equal(missing.success, false);
+  assert.doesNotMatch(missing.error, /[\u4e00-\u9fff]/);
+
+  const badFormat = await page.evaluate(
+    (heicPath) =>
+      window.require("electron").ipcRenderer.invoke("convert-heic-image", {
+        filePath: heicPath,
+        targetFormat: "gif",
+      }),
+    path.join(FIX, "images/photo.heic"),
+  );
+  assert.equal(badFormat.success, false);
+  assert.doesNotMatch(badFormat.error, /[\u4e00-\u9fff]/);
+
+  const missingDoc = await page.evaluate(() =>
+    window.require("electron").ipcRenderer.invoke("convert-file-to-markdown", "/tmp/missing-i18n.pdf"),
+  );
+  assert.equal(missingDoc.success, false);
+  assert.doesNotMatch(missingDoc.error, /[\u4e00-\u9fff]/);
+
+  await page.locator(".language-switch button", { hasText: "中文" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+});
+
+test("屏幕适配：1000x700 与 1200x760 无横向溢出", async () => {
+  await page.waitForSelector(".language-switch button");
+  await page.locator(".language-switch button", { hasText: "中文" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  await setWindowSize(1000, 700);
+  const modules = [
+    "JSON 格式化","变量命名","图片转换","图片压缩","图片去水印",
+    "PDF 转图片","视频转 GIF","文件搜索","文档转 MD","屏幕取色",
+  ];
+  for (const name of modules) {
+    await page.getByRole("button", { name: new RegExp(name) }).click();
+    await page.waitForSelector("h1.module-title");
+    const overflow = await page.evaluate(() => ({
+      doc: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      main: (() => {
+        const el = document.querySelector(".main-content");
+        return el ? el.scrollWidth - el.clientWidth : 0;
+      })(),
+    }));
+    assert.ok(overflow.doc <= 1, `${name} 页面横向溢出 ${overflow.doc}px`);
+    assert.ok(overflow.main <= 1, `${name} 主区域横向溢出 ${overflow.main}px`);
+  }
+
+  await page.locator(".language-switch button", { hasText: "English" }).click();
+  await page.waitForTimeout(200);
+  const clipped = await page.evaluate(() =>
+    [...document.querySelectorAll(".nav-label")].filter(
+      (el) => el.scrollWidth > el.clientWidth + 1,
+    ).length,
+  );
+  assert.equal(clipped, 0);
+
+  const englishModules = [
+    "JSON Formatter","Variable Naming","Image Converter","Image Compressor",
+    "Watermark Removal","PDF to Images","Video to GIF","File Search",
+    "Document to MD","Screenshot Float","Color Picker",
+  ];
+  for (const name of englishModules) {
+    await page.getByRole("button", { name: new RegExp(name) }).click();
+    await page.waitForSelector("h1.module-title");
+    const overflow = await page.evaluate(() => {
+      const main = document.querySelector(".main-content");
+      return {
+        doc: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        main: main ? main.scrollWidth - main.clientWidth : 0,
+      };
+    });
+    assert.ok(overflow.doc <= 1, `${name} 英文页面横向溢出 ${overflow.doc}px`);
+    assert.ok(overflow.main <= 1, `${name} 英文主区域横向溢出 ${overflow.main}px`);
+  }
+
+  await setWindowSize(1200, 760);
+  await page.locator(".language-switch button", { hasText: "中文" }).click();
+  await page.reload();
+  await page.waitForSelector(".nav-item");
+  await setWindowSize(1200, 760);
+  assert.ok(true);
 });
 
 test("文档转 Markdown：转换失败提示", async () => {

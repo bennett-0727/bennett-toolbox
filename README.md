@@ -35,6 +35,13 @@
 | **截图悬浮** | 选择屏幕源，支持整屏与框选截图、悬浮置顶、复制和下载。<br><img src="docs/screenshots/11-screenshot.png" width="560" /> |
 | **屏幕取色** | EyeDropper 取色，展示 HEX、RGB、HSL、CSS 格式与历史记录。<br><img src="docs/screenshots/12-color-picker.png" width="560" /> |
 
+### 语言与屏幕适配
+
+- 侧边栏底部可切换 中文 / English，选择保存到本地并在重启后恢复
+- 界面文案、错误提示、主进程对话框与悬浮窗文案均支持中英双语
+- 使用内联 SVG 图标，不把中文烘焙进图标或位图
+- 已验证 1000×700 与 1200×760 窗口下无横向溢出，英文侧边栏不截断
+
 ## 技术栈
 
 - Electron 28
@@ -48,7 +55,7 @@
 - `npx tsc --noEmit` 0 错误
 - `npx vite build` 成功
 - 浏览器 e2e：3/3 通过
-- Electron 打包版功能 e2e：48/48 通过（11 个模块 + 侧边栏 + 主进程 IPC）
+- Electron 打包版功能 e2e：52/52 通过（11 个模块 + 侧边栏 + 主进程 IPC）
 - Electron 打包版冒烟 e2e：7/7 通过
 - `npm run build:electron` 成功
 
@@ -60,7 +67,7 @@ npm run setup:markitdown  # 可选：准备文档转换器（文档转 MD 需要
 npm run dev              # 前端开发服务器 http://127.0.0.1:5173
 npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
-npm run test:electron    # Electron 功能测试（48 项，需先构建；CI 跳过 7 项屏幕用例）
+npm run test:electron    # Electron 功能测试（52 项，需先构建；CI 跳过 7 项屏幕用例）
 npm run test:electron:smoke  # Electron 冒烟测试（7 项）
 ```
 

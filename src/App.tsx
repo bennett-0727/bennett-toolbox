@@ -1,6 +1,7 @@
 import * as React from "react";
 import Sidebar from "./components/Sidebar";
 import type { ModuleInfo } from "./shared/types";
+import { applyLanguage, getInitialLanguage, type Language } from "./i18n";
 import JsonFormatter from "./modules/JsonFormatter";
 import NamingConverter from "./modules/NamingConverter";
 import ImageConverter from "./modules/ImageConverter";
@@ -49,6 +50,16 @@ function loadModuleOrder(): ModuleInfo[] {
 function App() {
   const [modules, setModules] = React.useState<ModuleInfo[]>(loadModuleOrder);
   const [activeModuleId, setActiveModuleId] = React.useState("json-formatter");
+  const [language, setLanguageState] = React.useState<Language>(getInitialLanguage);
+
+  React.useEffect(() => {
+    applyLanguage(language);
+  }, [language]);
+
+  const handleLanguageChange = React.useCallback((next: Language) => {
+    applyLanguage(next);
+    setLanguageState(next);
+  }, []);
 
   React.useEffect(() => {
     localStorage.setItem(MODULE_ORDER_KEY, JSON.stringify(modules.map((module) => module.id)));
@@ -99,8 +110,10 @@ function App() {
         activeModule={activeModuleId}
         onModuleSelect={setActiveModuleId}
         onModuleReorder={handleReorder}
+        language={language}
+        onLanguageChange={handleLanguageChange}
       />
-      <main className="main-content">{renderActiveModule()}</main>
+      <main className="main-content" key={language}>{renderActiveModule()}</main>
     </div>
   );
 }

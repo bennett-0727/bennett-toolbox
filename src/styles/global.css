@@ -2,3 +2,18 @@
 
 .history-panel{max-height:520px}
 .history-list{min-height:0;max-height:440px}
+.language-switch{display:flex;align-items:center;justify-content:center;gap:3px;width:100%;padding:4px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:999px}
+.language-switch svg{flex:none;color:var(--text-muted);margin-left:4px}
+.language-switch button{flex:1;border:none;background:transparent;color:var(--text-muted);font-size:11px;font-weight:500;padding:5px 8px;border-radius:999px;cursor:pointer;transition:all .2s}
+.language-switch button:hover:not(.active){color:var(--text-primary)}
+.language-switch button.active{background:linear-gradient(135deg,var(--primary-color),var(--primary-dark));color:#fff;box-shadow:0 2px 8px #5078ff4d}
+.nav-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-footer{display:flex;flex-direction:column;gap:8px}
+.language-switch select{max-width:110px}
+html[lang="en-US"] .sidebar{width:220px}
+@media (max-width:1100px){.sidebar{width:190px}html[lang="en-US"] .sidebar{width:210px}.main-content{padding:16px 16px 16px 8px}}
+@media (max-height:760px){.sidebar-header{padding:24px 16px 12px}.sidebar-footer{padding:10px 16px}.module-title{font-size:22px}}
+html[lang="en-US"] .sidebar{width:230px}
+html[lang="en-US"] .nav-item{gap:8px;padding-left:8px;padding-right:8px}
+html[lang="en-US"] .nav-label{font-size:12px}
+@media (max-width:1100px){html[lang="en-US"] .sidebar{width:230px}}

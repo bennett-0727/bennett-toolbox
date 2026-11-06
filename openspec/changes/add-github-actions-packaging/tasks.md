@@ -14,6 +14,9 @@
 - [x] 2.4 添加 artifact 上传步骤，确认 artifact 名称包含平台与架构
 - [x] 2.5 添加 tag 触发的 release job：下载全部 artifacts 并附加到对应 GitHub Release
 - [x] 2.6 tag 构建前将 `package.json` 版本同步为 tag 版本（去掉 `v` 前缀），确保产物文件名与版本一致
+- [x] 2.7 增加 MarkItDown 准备步骤（macOS arm64 下载 Release 资源，其他平台 PyInstaller 构建），确认打包产物包含转换器
+- [x] 2.8 增加 Web e2e、macOS x64 与 Windows Electron e2e job
+- [x] 2.9 CI 中强制重新安装 Electron 二进制，避免 e2e 启动失败
 
 ## 3. 文档
 
@@ -26,4 +29,3 @@
 - [x] 4.2 执行 `npm run typecheck`、`npm run build`、`npm run test:e2e`，确认现有测试无回归
 - [ ] 4.3（需推送授权）在 GitHub 手动触发 workflow，确认 4 个矩阵任务全部成功且 artifacts 可下载
 - [ ] 4.4（需推送授权）推送下一个 `v*` tag，确认 Release 附带 macOS 与 Windows 全部产物
-- [ ] 2.7 增加 MarkItDown 准备步骤（macOS arm64 下载 Release 资源，其他平台 PyInstaller 构建），确认打包产物包含转换器

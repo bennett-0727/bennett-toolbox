@@ -133,7 +133,10 @@ jobs:
         run: npm ci
 
       - name: Ensure Electron binary
-        run: node node_modules/electron/install.js
+        run: |
+          node -e "const fs=require('fs');fs.rmSync('node_modules/electron/dist',{recursive:true,force:true});fs.rmSync('node_modules/electron/path.txt',{force:true})"
+          node node_modules/electron/install.js
+          node -e "console.log(require('electron'))"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -176,7 +179,10 @@ jobs:
         run: npm ci
 
       - name: Ensure Electron binary
-        run: node node_modules/electron/install.js
+        run: |
+          node -e "const fs=require('fs');fs.rmSync('node_modules/electron/dist',{recursive:true,force:true});fs.rmSync('node_modules/electron/path.txt',{force:true})"
+          node node_modules/electron/install.js
+          node -e "console.log(require('electron'))"
 
       - name: Setup Python
         uses: actions/setup-python@v5
