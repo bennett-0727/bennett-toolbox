@@ -16,7 +16,8 @@
     "test:electron": "node tests/electron.full.mjs",
     "test:electron:smoke": "node tests/electron.smoke.mjs",
     "package:mac": "electron-builder --mac --publish never",
-    "package:win": "electron-builder --win --publish never"
+    "package:win": "electron-builder --win --publish never",
+    "screenshots": "node scripts/capture-screenshots.mjs"
   },
   "dependencies": {
     "core-js": "^3.51.0",

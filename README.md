@@ -2,6 +2,8 @@
 
 多功能工具箱桌面应用，基于 Electron + React + TypeScript，内置 11 个常用工具。
 
+![Bennett Toolbox 主界面](docs/screenshots/01-overview.png)
+
 ## 功能
 
 - JSON 格式化与压缩
@@ -14,6 +16,24 @@
 - 文档转 Markdown
 - 截图悬浮
 - 屏幕取色
+
+## 功能截图
+
+截图使用演示数据与合成屏幕源，不包含个人文件或桌面内容。
+
+| 功能 | 说明与界面 |
+| --- | --- |
+| **JSON 格式化** | 格式化、压缩、复制结果，语法错误定位到行列。<br><img src="docs/screenshots/02-json-formatter.png" width="560" /> |
+| **变量命名** | 中英互译并生成 camelCase、PascalCase、snake_case 等 6 种命名格式。<br><img src="docs/screenshots/03-naming.png" width="560" /> |
+| **图片转换** | 批量转换 PNG、JPG、WebP、HEIC、SVG，支持质量调节与 ZIP 导出。<br><img src="docs/screenshots/04-image-converter.png" width="560" /> |
+| **图片压缩** | 按目标大小或质量批量压缩，支持 JPG/WebP 与 ZIP 导出。<br><img src="docs/screenshots/05-image-compressor.png" width="560" /> |
+| **图片去水印** | 画笔或框选遮罩，局部修补后预览并下载结果。<br><img src="docs/screenshots/06-watermark.png" width="560" /> |
+| **PDF 转图片** | 按页导出 JPG/PNG，清晰度与质量可调，支持 ZIP 打包。<br><img src="docs/screenshots/07-pdf.png" width="560" /> |
+| **视频转 GIF** | 截取区间，设置帧率、尺寸与质量，生成并下载 GIF。<br><img src="docs/screenshots/08-video-gif.png" width="560" /> |
+| **文件搜索** | 按目录递归搜索文件名，支持深度、排序、打开与在文件夹中显示。<br><img src="docs/screenshots/09-file-search.png" width="560" /> |
+| **文档转 MD** | 调用 MarkItDown 转换 PDF、Office、HTML 等格式，可复制或保存 Markdown。<br><img src="docs/screenshots/10-document-converter.png" width="560" /> |
+| **截图悬浮** | 选择屏幕源，支持整屏与框选截图、悬浮置顶、复制和下载。<br><img src="docs/screenshots/11-screenshot.png" width="560" /> |
+| **屏幕取色** | EyeDropper 取色，展示 HEX、RGB、HSL、CSS 格式与历史记录。<br><img src="docs/screenshots/12-color-picker.png" width="560" /> |
 
 ## 技术栈
 
@@ -76,7 +96,10 @@ ELECTRON_APP_PATH="$PWD/release/Bennett Toolbox-darwin-arm64/Bennett Toolbox.app
 │   └── ColorPicker.tsx
 ├── src/shared/               # 版本号与类型
 ├── src/styles/global.css     # 全局样式
+├── docs/screenshots/         # README 功能截图
+├── scripts/capture-screenshots.mjs
 ├── tests/smoke.e2e.ts
+├── tests/electron.full.mjs
 └── e2e.config.ts
 ```
 
