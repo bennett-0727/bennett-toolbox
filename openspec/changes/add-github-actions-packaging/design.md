@@ -25,7 +25,7 @@
    - 备选 `@electron/packager` + 手写 dmg/NSIS 脚本被否决：维护成本高且不易在 CI 复用。
 
 2. **GitHub 托管 runner 矩阵**
-   - macOS x64：`macos-26-intel`；macOS arm64：`macos-26`。
+   - macOS x64：`macos-15-intel`；macOS arm64：`macos-15`。
    - Windows：`windows-latest`，分别以 `--x64` 与 `--arm64` 打包。
    - 备选单 runner 构建全部架构被否决：跨架构 dmg/NSIS 稳定性较差，矩阵隔离更清晰。
 
@@ -50,7 +50,7 @@
 ## Risks / Trade-offs
 
 - **Windows arm64 交叉打包兼容性** → 使用最新 electron-builder；若 CI 失败，改用 `windows-11-arm` runner 原生构建。
-- **macOS runner 标签变化** → 使用 `macos-26-intel` / `macos-26`；若不可用回退到当前可用的 macOS 版本标签。
+- **macOS runner 标签变化** → 使用 `macos-15-intel` / `macos-15`；若不可用回退到当前可用的 macOS 版本标签。
 - **未签名产物被系统拦截** → README 说明运行方式；后续可增加证书与公证。
 - **GitHub Actions Node 26 供应** → `actions/setup-node` 指定 `26.13.0`；若不可用回退 `24`（满足 `engines`）。
 - **矩阵产物相互覆盖** → 每个 job 的 artifact 名称包含平台与架构，release job 统一下载。

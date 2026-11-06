@@ -48,7 +48,7 @@
 - `npx tsc --noEmit` 0 错误
 - `npx vite build` 成功
 - 浏览器 e2e：3/3 通过
-- Electron 打包版功能 e2e：31/31 通过（11 个模块 + 侧边栏 + 主进程 IPC）
+- Electron 打包版功能 e2e：33/33 通过（11 个模块 + 侧边栏 + 主进程 IPC）
 - Electron 打包版冒烟 e2e：7/7 通过
 - `npm run build:electron` 成功
 
@@ -59,7 +59,7 @@ npm install
 npm run dev              # 前端开发服务器 http://127.0.0.1:5173
 npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
-npm run test:electron    # Electron 功能测试（31 项，需先构建）
+npm run test:electron    # Electron 功能测试（33 项，需先构建）
 npm run test:electron:smoke  # Electron 冒烟测试（7 项）
 ```
 

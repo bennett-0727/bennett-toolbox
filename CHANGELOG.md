@@ -10,7 +10,7 @@
 - 推送 `v*` tag 自动构建并附加到 GitHub Release，支持手动触发
 - tag 构建自动同步 `package.json` 版本号
 - 本地打包脚本 `package:mac`、`package:win`
-- Electron 全功能 e2e（31 项）与 `tests/fixtures/` 测试素材
+- Electron 全功能 e2e（33 项）与 `tests/fixtures/` 测试素材
 - README 功能截图与介绍（11 个模块）
 
 ### Changed

@@ -99,6 +99,9 @@ before(async () => {
   });
   page = await app.firstWindow();
   await page.waitForLoadState("domcontentloaded");
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.waitForSelector(".nav-item");
 
   fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
   await app.evaluate(({ session }, dir) => {
@@ -382,6 +385,13 @@ test("文件搜索：目录选择、搜索、清空", async () => {
   await page.locator(".results-header .size-cell").click();
   await page.waitForFunction(
     () => document.querySelector(".result-item .file-name")?.textContent === "report-2026.txt",
+  );
+
+  await page.locator(".depth-select").selectOption("3");
+  await page.waitForFunction(
+    () => document.querySelectorAll(".result-item").length === 2,
+    null,
+    { timeout: 20000 },
   );
 
   await clickButton(page.locator(".file-search-header"), "清空");
@@ -894,6 +904,12 @@ test("屏幕取色：不支持提示、历史回选与持久化", async () => {
     () => document.querySelector(".color-value-large")?.textContent === "#3366FF",
   );
 
+  const formatItems = page.locator(".format-item");
+  await formatItems.nth(1).locator(".copy-btn-icon").click();
+  assert.match(await readClipboardText(), /^rgb\(51, 102, 255\)$/);
+  await formatItems.nth(3).locator(".copy-btn-icon").click();
+  assert.equal(await readClipboardText(), "background-color: #3366ff;");
+
   await page.reload();
   await openModule("屏幕取色");
   assert.equal(await page.locator(".history-item").count(), 2);
@@ -930,4 +946,61 @@ test("主进程 IPC 错误路径", async () => {
     window.require("electron").ipcRenderer.invoke("convert-file-to-markdown", "/tmp/does-not-exist.pdf"),
   );
   assert.equal(missingDoc.success, false);
+});
+
+test("PDF 清晰度倍率影响输出尺寸", async () => {
+  await openModule("PDF 转图片");
+  await uploadFiles("doc.pdf");
+  await page.waitForSelector(".pdf-file-name");
+  const scale = page.locator(".pdf-setting-field input[type=range]").first();
+  const setScale = (value) =>
+    scale.evaluate((el, next) => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setter.call(el, next);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }, value);
+
+  await setScale("1");
+  await waitForText(".pdf-setting-field", "1.0x");
+  await clickButton(page.locator(".pdf-settings-card"), "转换全部页面");
+  await page.waitForSelector(".pdf-page-card", { timeout: 60000 });
+  const small = await page
+    .locator(".pdf-page-preview img")
+    .first()
+    .evaluate((img) => img.naturalWidth);
+
+  await setScale("3");
+  await waitForText(".pdf-setting-field", "3.0x");
+  await clickButton(page.locator(".pdf-settings-card"), "转换全部页面");
+  await page.waitForFunction(
+    (smallWidth) => {
+      const img = document.querySelector(".pdf-page-preview img");
+      return img && img.naturalWidth > smallWidth * 2;
+    },
+    small,
+    { timeout: 60000 },
+  );
+});
+
+test("视频转 GIF：自定义宽度", async () => {
+  await openModule("视频转 GIF");
+  await uploadFiles("clip.webm");
+  await page.waitForSelector(".video-summary");
+  const widthSlider = page.locator(".gif-settings-card input[type=range]").nth(3);
+  await widthSlider.evaluate((el) => {
+    el.value = "320";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await clickButton(page.locator(".gif-settings-card"), "生成 GIF");
+  await page.waitForSelector(".gif-preview-image", { timeout: 60000 });
+  const width = await page
+    .locator(".gif-preview-image")
+    .evaluate((img) => img.naturalWidth);
+  assert.equal(width, 320);
+
+  const gif = await downloadFrom(
+    page.locator(".gif-result-footer button", { hasText: "下载 GIF" }),
+  );
+  assertGif(gif);
 });
