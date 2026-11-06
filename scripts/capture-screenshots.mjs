@@ -12,17 +12,17 @@ const APP =
 
 fs.mkdirSync(OUT, { recursive: true });
 fs.mkdirSync(path.join(DEMO, "search/sub"), { recursive: true });
-fs.copyFileSync(path.join(FIX, "photo.png"), path.join(DEMO, "search/photo-final.png"));
-fs.copyFileSync(path.join(FIX, "doc.txt"), path.join(DEMO, "doc.txt"));
+fs.copyFileSync(path.join(FIX, "images/photo.png"), path.join(DEMO, "search/photo-final.png"));
+fs.copyFileSync(path.join(FIX, "documents/doc.txt"), path.join(DEMO, "doc.txt"));
 fs.writeFileSync(path.join(DEMO, "search/report-2026.txt"), "report content\n");
 fs.writeFileSync(path.join(DEMO, "search/sub/report-draft.md"), "nested report\n");
 
-const thumbPng = `data:image/png;base64,${fs.readFileSync(path.join(FIX, "photo.png")).toString("base64")}`;
-const thumbJpg = `data:image/jpeg;base64,${fs.readFileSync(path.join(FIX, "picture.jpg")).toString("base64")}`;
+const thumbPng = `data:image/png;base64,${fs.readFileSync(path.join(FIX, "images/photo.png")).toString("base64")}`;
+const thumbJpg = `data:image/jpeg;base64,${fs.readFileSync(path.join(FIX, "images/picture.jpg")).toString("base64")}`;
 
 const app = await electron.launch({
   executablePath: APP,
-  env: { ...process.env, MARKITDOWN_BIN: path.join(FIX, "markitdown.sh") },
+  env: { ...process.env, MARKITDOWN_BIN: path.join(FIX, "markitdown/markitdown.sh") },
 });
 const page = await app.firstWindow();
 await page.waitForLoadState("domcontentloaded");
@@ -92,7 +92,7 @@ await page.waitForSelector(".result-value");
 await shot("03-naming.png");
 
 await openModule("图片转换");
-await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "photo.png"));
+await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "images/photo.png"));
 await page.waitForSelector(".image-batch-card");
 await page.locator(".batch-format-selector .format-btn", { hasText: "WebP" }).click();
 await page.locator(".batch-convert-btn").click();
@@ -100,7 +100,7 @@ await page.waitForSelector(".batch-success");
 await shot("04-image-converter.png");
 
 await openModule("图片压缩", "图片批量压缩");
-await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "big.jpg"));
+await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "images/big.jpg"));
 await page.waitForSelector(".compress-card");
 await page.locator('input[type="number"]').fill("0.1");
 await clickButton(page.locator(".compress-control-body"), "批量压缩");
@@ -108,7 +108,7 @@ await page.waitForSelector(".compress-result-meta");
 await shot("05-image-compressor.png");
 
 await openModule("图片去水印");
-await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "photo.png"));
+await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "images/photo.png"));
 await page.waitForSelector(".watermark-mask-canvas");
 await clickButton(page.locator(".tool-mode-switch"), "框选");
 const mask = page.locator(".watermark-mask-canvas");
@@ -122,7 +122,7 @@ await page.waitForSelector(".watermark-result-preview img", { timeout: 60000 });
 await shot("06-watermark.png");
 
 await openModule("PDF 转图片");
-await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "doc.pdf"));
+await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "documents/doc.pdf"));
 await page.waitForSelector(".pdf-file-name");
 await page.locator(".pdf-format-switch button", { hasText: "JPG" }).click();
 await clickButton(page.locator(".pdf-settings-card"), "转换全部页面");
@@ -130,7 +130,7 @@ await page.waitForSelector(".pdf-page-card", { timeout: 60000 });
 await shot("07-pdf.png");
 
 await openModule("视频转 GIF");
-await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "clip.webm"));
+await page.locator('input[type="file"]').first().setInputFiles(path.join(FIX, "video/clip.webm"));
 await page.waitForSelector(".video-summary");
 await clickButton(page.locator(".gif-settings-card"), "生成 GIF");
 await page.waitForSelector(".gif-preview-image", { timeout: 60000 });

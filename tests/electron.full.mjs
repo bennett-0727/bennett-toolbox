@@ -10,8 +10,12 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const FIX = path.join(ROOT, "tests/fixtures");
 const SEARCH_DIR = path.join(FIX, "search");
 const SKIP_SCREEN = process.env.E2E_SKIP_SCREEN === "1";
-const MD_BIN = path.join(FIX, "markitdown.sh");
-const DOWNLOAD_DIR = "/tmp/bennett-e2e/downloads";
+const IS_WINDOWS = process.platform === "win32";
+const MD_BIN =
+  process.platform === "win32"
+    ? path.join(ROOT, "vendor/markitdown/markitdown.exe")
+    : path.join(FIX, "markitdown/markitdown.sh");
+const DOWNLOAD_DIR = path.join(os.tmpdir(), "bennett-e2e", "downloads");
 
 let app;
 let page;
@@ -158,7 +162,7 @@ before(async () => {
         extension: "TXT",
       }));
     },
-    { searchDir: SEARCH_DIR, docPath: path.join(FIX, "doc.txt") },
+    { searchDir: SEARCH_DIR, docPath: path.join(FIX, "documents/doc.txt") },
   );
 });
 
@@ -185,8 +189,16 @@ test("基础环境与 Electron 能力", async () => {
 
 test("侧边栏拖拽排序并持久化", async () => {
   const initial = await page.locator(".nav-item .nav-label").allTextContents();
-  const items = page.locator(".nav-item-wrapper");
-  await items.nth(0).dragTo(items.nth(2));
+  await page.evaluate(async () => {
+    const items = [...document.querySelectorAll(".nav-item-wrapper")];
+    const transfer = new DataTransfer();
+    items[0].dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: transfer }));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    items[2].dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    items[2].dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    items[0].dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer: transfer }));
+  });
   await page.waitForFunction(
     (first) => document.querySelector(".nav-item .nav-label")?.textContent !== first,
     initial[0],
@@ -282,7 +294,7 @@ test("变量命名：中译英、英译中、失败提示", async () => {
 test("图片转换：PNG/HEIC 转 WebP、SVG 代码复制与下载", async () => {
   await openModule("图片转换");
 
-  await uploadFiles("photo.png");
+  await uploadFiles("images/photo.png");
   await page.waitForSelector(".image-batch-card");
   await page.locator(".batch-format-selector .format-btn", { hasText: "WebP" }).click();
   await page.locator(".batch-convert-btn").click();
@@ -295,7 +307,7 @@ test("图片转换：PNG/HEIC 转 WebP、SVG 代码复制与下载", async () =>
   assert.match(singleZip, /\.zip$/i);
 
   await clickButton(page.locator(".image-converter-header"), "清空");
-  await uploadFiles("photo.heic");
+  await uploadFiles("images/photo.heic");
   await page.waitForSelector(".image-batch-card");
   await page.locator(".batch-convert-btn").click();
   await waitForText(".batch-success", "张已转换");
@@ -306,7 +318,7 @@ test("图片转换：PNG/HEIC 转 WebP、SVG 代码复制与下载", async () =>
   assertJpeg(heicOutput);
 
   await clickButton(page.locator(".image-converter-header"), "清空");
-  await uploadFiles("picture.jpg");
+  await uploadFiles("images/picture.jpg");
   await page.waitForSelector(".image-batch-card");
   await page.locator(".batch-format-selector .format-btn", { hasText: "PNG" }).click();
   await page.locator(".batch-convert-btn").click();
@@ -317,7 +329,7 @@ test("图片转换：PNG/HEIC 转 WebP、SVG 代码复制与下载", async () =>
   assertPng(pngOutput);
 
   await clickButton(page.locator(".image-converter-header"), "清空");
-  await uploadFiles("icon.svg");
+  await uploadFiles("images/icon.svg");
   await page.waitForSelector(".svg-code-section");
   assert.match(await page.locator(".svg-code-content").textContent(), /<svg/);
   await clickButton(page.locator(".svg-code-actions"), "复制代码");
@@ -330,7 +342,7 @@ test("图片转换：PNG/HEIC 转 WebP、SVG 代码复制与下载", async () =>
 
 test("图片压缩：按目标大小批量压缩、切换格式、ZIP", async () => {
   await openModule("图片压缩", "图片批量压缩");
-  await uploadFiles("big.jpg");
+  await uploadFiles("images/big.jpg");
   await page.waitForSelector(".compress-card");
 
   await page.locator('input[type="number"]').fill("0.1");
@@ -348,7 +360,7 @@ test("图片压缩：按目标大小批量压缩、切换格式、ZIP", async ()
 
 test("图片去水印：框选遮罩并处理", async () => {
   await openModule("图片去水印");
-  await uploadFiles("photo.png");
+  await uploadFiles("images/photo.png");
   await page.waitForSelector(".watermark-mask-canvas");
 
   await clickButton(page.locator(".tool-mode-switch"), "框选");
@@ -379,7 +391,7 @@ test("图片去水印：框选遮罩并处理", async () => {
 
 test("PDF 转图片：JPG 输出、页面预览、ZIP", async () => {
   await openModule("PDF 转图片");
-  await uploadFiles("doc.pdf");
+  await uploadFiles("documents/doc.pdf");
   await page.waitForSelector(".pdf-file-name");
 
   await page.locator(".pdf-format-switch button", { hasText: "JPG" }).click();
@@ -396,7 +408,7 @@ test("PDF 转图片：JPG 输出、页面预览、ZIP", async () => {
 
 test("视频转 GIF：生成并下载", async () => {
   await openModule("视频转 GIF");
-  await uploadFiles("clip.webm");
+  await uploadFiles("video/clip.webm");
   await page.waitForSelector(".video-summary");
   await waitForText(".video-summary", "2");
 
@@ -414,6 +426,9 @@ test("视频转 GIF：生成并下载", async () => {
 });
 
 test("文件搜索：目录选择、搜索、清空", async () => {
+  const hiddenDir = path.join(SEARCH_DIR, ".hidden");
+  fs.mkdirSync(hiddenDir, { recursive: true });
+  fs.writeFileSync(path.join(hiddenDir, "report-hidden.txt"), "hidden\n");
   await openModule("文件搜索");
   await page.locator(".path-selector button").click();
   assert.equal(await page.locator(".path-input").inputValue(), SEARCH_DIR);
@@ -452,6 +467,7 @@ test("文件搜索：目录选择、搜索、清空", async () => {
 
   await clickButton(page.locator(".file-search-header"), "清空");
   await page.waitForSelector(".empty-state");
+  fs.rmSync(hiddenDir, { recursive: true, force: true });
 });
 
 test("文档转 Markdown：转换、复制、保存、失败提示", async () => {
@@ -461,14 +477,14 @@ test("文档转 Markdown：转换、复制、保存、失败提示", async () =>
 
   await clickButton(page.locator(".document-summary"), "转换为 Markdown");
   await page.waitForFunction(
-    () => document.querySelector(".markdown-output")?.value?.includes("Converted"),
+    () => /Converted|hello markitdown/.test(document.querySelector(".markdown-output")?.value || ""),
     null,
     { timeout: 30000 },
   );
   await waitForText(".command-badge", "MARKITDOWN_BIN");
 
   await clickButton(page.locator(".document-converter-header"), "复制");
-  assert.match(await readClipboardText(), /# Converted/);
+  assert.match(await readClipboardText(), /# Converted|hello markitdown/);
 
   const mdFile = await downloadFrom(
     page.locator(".document-converter-header button", { hasText: "保存 .md" }),
@@ -567,7 +583,7 @@ test("屏幕取色：取色、格式转换、历史、复制、清空", async ()
   );
   const formats = await page.locator(".format-value").allTextContents();
   assert.ok(formats.some((value) => value.startsWith("rgb(51, 102, 255")));
-  assert.ok(formats.some((value) => value.startsWith("hsl(")));
+  assert.ok(formats.includes("hsl(225, 100%, 60%)"));
   await waitForText(".history-item", "#3366FF");
 
   await page.locator(".format-item .copy-btn-icon").first().click();
@@ -620,16 +636,23 @@ test("变量命名：复制、回车提交与清空", async () => {
   await clickButton(page.locator(".translate-naming-header"), "清空");
   assert.equal(await input.inputValue(), "");
   assert.equal(await page.locator(".empty-state").count(), 1);
+
+  await page.getByRole("button", { name: "英 -> 中" }).click();
+  await input.fill("  user__profile--name  ");
+  await input.press("Enter");
+  await page.waitForFunction(
+    () => [...document.querySelectorAll(".result-value")].some((el) => el.textContent === "userProfileName"),
+  );
   await page.unroute("**/api.mymemory.translated.net/**");
 });
 
 test("图片转换：非法文件、JPG 输出、多文件与单张下载", async () => {
   await openModule("图片转换");
-  await uploadFiles("doc.txt");
+  await uploadFiles("documents/doc.txt");
   await waitForText(".error-box", "请选择支持的图片文件");
 
   await clickButton(page.locator(".image-converter-header"), "清空");
-  await uploadFiles("photo.png", "picture.jpg");
+  await uploadFiles("images/photo.png", "images/picture.jpg");
   await page.waitForFunction(() => document.querySelectorAll(".image-batch-card").length === 2);
   await page.locator(".batch-format-selector .format-btn", { hasText: "JPG" }).click();
   await setRange(page.locator(".batch-quality-control input[type=range]"), "50");
@@ -656,13 +679,16 @@ test("图片转换：非法文件、JPG 输出、多文件与单张下载", asyn
 
 test("图片压缩：非法文件、JPG 输出与单张下载", async () => {
   await openModule("图片压缩", "图片批量压缩");
-  await uploadFiles("doc.txt");
+  await uploadFiles("documents/doc.txt");
   await waitForText(".compress-error-box", "请选择支持的图片文件");
 
   await clickButton(page.locator(".image-compressor-header"), "清空");
-  await uploadFiles("big.jpg", "picture.jpg");
+  await uploadFiles("images/big.jpg", "images/picture.jpg");
   await page.waitForFunction(() => document.querySelectorAll(".compress-card").length === 2);
   await page.locator(".compress-format-buttons .format-btn", { hasText: "JPG" }).click();
+  const qualitySliders = page.locator(".compress-field input[type=range]");
+  await setRange(qualitySliders.nth(0), "60");
+  await setRange(qualitySliders.nth(1), "20");
   await clickButton(page.locator(".compress-control-body"), "批量压缩");
   await page.waitForSelector(".compress-result-meta", { timeout: 60000 });
 
@@ -682,7 +708,7 @@ test("图片压缩：非法文件、JPG 输出与单张下载", async () => {
 
 test("图片去水印：画笔模式与下载", async () => {
   await openModule("图片去水印");
-  await uploadFiles("photo.png");
+  await uploadFiles("images/photo.png");
   await page.waitForSelector(".watermark-mask-canvas");
   await clickButton(page.locator(".tool-mode-switch"), "画笔");
 
@@ -707,11 +733,11 @@ test("图片去水印：画笔模式与下载", async () => {
 
 test("PDF：非法文件、多页 PNG、单页下载与 ZIP 内容", async () => {
   await openModule("PDF 转图片");
-  await uploadFiles("doc.txt");
+  await uploadFiles("documents/doc.txt");
   await waitForText(".error-box", "请选择 PDF 文件");
 
   await clickButton(page.locator(".pdf-to-images-header"), "清空");
-  await uploadFiles("multi.pdf");
+  await uploadFiles("documents/multi.pdf");
   await page.waitForSelector(".pdf-file-name");
   await page.locator(".pdf-format-switch button", { hasText: "PNG" }).click();
   await clickButton(page.locator(".pdf-settings-card"), "转换全部页面");
@@ -737,11 +763,11 @@ test("PDF：非法文件、多页 PNG、单页下载与 ZIP 内容", async () =>
 
 test("视频转 GIF：MP4 输入与非法文件", async () => {
   await openModule("视频转 GIF");
-  await uploadFiles("doc.txt");
+  await uploadFiles("documents/doc.txt");
   await waitForText(".error-box", "请选择视频文件");
 
   await clickButton(page.locator(".video-to-gif-header"), "清空");
-  await uploadFiles("clip.mp4");
+  await uploadFiles("video/clip.mp4");
   await page.waitForSelector(".video-summary");
   await clickButton(page.locator(".gif-settings-card"), "生成 GIF");
   await page.waitForSelector(".gif-preview-image", { timeout: 60000 });
@@ -753,9 +779,16 @@ test("视频转 GIF：MP4 输入与非法文件", async () => {
   assertGif(gif);
 });
 
+test("视频转 GIF：损坏视频报错", async () => {
+  await page.reload();
+  await openModule("视频转 GIF");
+  await uploadFiles("video/corrupt.webm");
+  await waitForText(".error-box", "无法读取视频信息", 20000);
+});
+
 test("文件搜索：无效目录静默返回空结果，恢复有效目录后可搜索", async () => {
   await openModule("文件搜索");
-  await page.locator(".path-input").fill("/tmp/bennett-missing-directory");
+  await page.locator(".path-input").fill(path.join(os.tmpdir(), "bennett-missing-directory"));
   await page.locator(".search-input").fill("report");
   await page.waitForSelector(".error-box", { timeout: 20000 });
   await waitForText(".error-box", "搜索失败");
@@ -771,8 +804,8 @@ test("文件搜索：无效目录静默返回空结果，恢复有效目录后�
   assert.equal(await page.locator(".result-item .file-name").first().textContent(), "photo-final.png");
 });
 
-test("文件搜索：子目录不可读仍继续", async () => {
-  const dir = "/tmp/bennett-e2e-locked";
+test("文件搜索：子目录不可读仍继续", { skip: IS_WINDOWS }, async () => {
+  const dir = path.join(os.tmpdir(), "bennett-e2e-locked");
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(path.join(dir, "blocked"), { recursive: true });
   fs.writeFileSync(path.join(dir, "hello.txt"), "hello\n");
@@ -803,12 +836,12 @@ test("文档转 Markdown：清空与不支持类型", async () => {
       size: 17,
       extension: "TXT",
     }));
-  }, path.join(FIX, "doc.txt"));
+  }, path.join(FIX, "documents/doc.txt"));
   await clickButton(page.locator(".document-drop-zone"), "选择文件");
   await page.waitForSelector(".document-summary");
   await clickButton(page.locator(".document-summary"), "转换为 Markdown");
   await page.waitForFunction(
-    () => document.querySelector(".markdown-output")?.value?.includes("Converted"),
+    () => /Converted|hello markitdown/.test(document.querySelector(".markdown-output")?.value || ""),
   );
   await clickButton(page.locator(".document-converter-header"), "清空");
   assert.equal(await page.locator(".document-summary").count(), 0);
@@ -822,7 +855,7 @@ test("文档转 Markdown：清空与不支持类型", async () => {
       size: 10,
       extension: "XYZ",
     }));
-  }, path.join(FIX, "bad.xyz"));
+  }, path.join(FIX, "documents/bad.xyz"));
   await clickButton(page.locator(".document-drop-zone"), "选择文件");
   await waitForText(".error-box", "暂不支持此文件类型");
   assert.equal(await page.locator(".document-summary").count(), 0);
@@ -835,7 +868,7 @@ test("文档转 Markdown：清空与不支持类型", async () => {
       size: 17,
       extension: "TXT",
     }));
-  }, path.join(FIX, "doc.txt"));
+  }, path.join(FIX, "documents/doc.txt"));
   await clickButton(page.locator(".document-drop-zone"), "选择文件");
   await page.waitForSelector(".document-summary");
   await clickButton(page.locator(".document-converter-header"), "清空");
@@ -846,7 +879,7 @@ test("文档转 Markdown：清空与不支持类型", async () => {
     input.id = "e2e-temp-file";
     document.body.appendChild(input);
   });
-  await page.locator("#e2e-temp-file").setInputFiles(path.join(FIX, "bad.xyz"));
+  await page.locator("#e2e-temp-file").setInputFiles(path.join(FIX, "documents/bad.xyz"));
   await page.evaluate(() => {
     const input = document.getElementById("e2e-temp-file");
     const transfer = new DataTransfer();
@@ -861,15 +894,17 @@ test("文档转 Markdown：清空与不支持类型", async () => {
 
 test("文档转 Markdown：空内容提示", async () => {
   await openModule("文档转 MD", "文档转 Markdown");
-  await app.evaluate(({ ipcMain }, emptyPath) => {
+  const emptyFile = IS_WINDOWS ? "images/picture.jpg" : "documents/empty.txt";
+  const emptyPath = path.join(FIX, emptyFile);
+  await app.evaluate(({ ipcMain }, file) => {
     ipcMain.removeHandler("select-markitdown-file");
-    ipcMain.handle("select-markitdown-file", async () => ({
-      path: emptyPath,
-      name: "empty.txt",
-      size: 14,
-      extension: "TXT",
-    }));
-  }, path.join(FIX, "empty.txt"));
+    ipcMain.handle("select-markitdown-file", async () => file);
+  }, {
+    path: emptyPath,
+    name: path.basename(emptyPath),
+    size: 1,
+    extension: emptyPath.split(".").pop().toUpperCase(),
+  });
   await clickButton(page.locator(".document-drop-zone"), "选择文件");
   await page.waitForSelector(".document-summary");
   await clickButton(page.locator(".document-summary"), "转换为 Markdown");
@@ -884,7 +919,7 @@ test("文档转 Markdown：空内容提示", async () => {
       size: 17,
       extension: "TXT",
     }));
-  }, path.join(FIX, "doc.txt"));
+  }, path.join(FIX, "documents/doc.txt"));
 });
 
 test("截图悬浮：取消裁剪", { skip: SKIP_SCREEN }, async () => {
@@ -941,6 +976,22 @@ test("截图悬浮：屏幕源获取失败", { skip: SKIP_SCREEN }, async () => 
   await clickButton(page.locator(".screenshot-float-header .header-actions"), "刷新源");
   await page.waitForSelector(".error-box", { timeout: 30000 });
   await waitForText(".error-box", "获取屏幕源失败");
+
+  await app.evaluate(({ ipcMain, desktopCapturer }) => {
+    ipcMain.removeHandler("get-desktop-sources");
+    ipcMain.handle("get-desktop-sources", async () => {
+      const sources = await desktopCapturer.getSources({
+        types: ["screen", "window"],
+        thumbnailSize: { width: 320, height: 180 },
+      });
+      return sources.map((source) => ({
+        id: source.id,
+        name: source.name,
+        thumbnail: source.thumbnail.toDataURL(),
+        appIcon: source.appIcon?.toDataURL() || null,
+      }));
+    });
+  });
 });
 
 test("屏幕取色：不支持提示、历史回选与持久化", async () => {
@@ -1035,7 +1086,7 @@ test("主进程 IPC 错误路径", async () => {
       filePath: heicPath,
       targetFormat: "gif",
     }),
-    "/Users/pms/bennett/bennett-toolbox-source/recovered/tests/fixtures/photo.heic");
+    path.join(FIX, "images/photo.heic"));
   assert.equal(badFormat.success, false);
 
   const missingDoc = await page.evaluate(() =>
@@ -1049,7 +1100,7 @@ test("主进程 IPC 错误路径", async () => {
         filePath: heicPath,
         targetFormat: "jpg",
       }),
-    "/Users/pms/bennett/bennett-toolbox-source/recovered/tests/fixtures/photo.heic",
+    path.join(FIX, "images/photo.heic"),
   );
   assert.equal(heicJpg.success, true);
   assert.match(heicJpg.dataUrl, /^data:image\/jpeg/);
@@ -1057,7 +1108,7 @@ test("主进程 IPC 错误路径", async () => {
 
 test("PDF 清晰度倍率影响输出尺寸", async () => {
   await openModule("PDF 转图片");
-  await uploadFiles("doc.pdf");
+  await uploadFiles("documents/doc.pdf");
   await page.waitForSelector(".pdf-file-name");
   const scale = page.locator(".pdf-setting-field input[type=range]").first();
   const setScale = (value) =>
@@ -1092,12 +1143,12 @@ test("PDF 清晰度倍率影响输出尺寸", async () => {
 
 test("视频转 GIF：自定义宽度", async () => {
   await openModule("视频转 GIF");
-  await uploadFiles("clip.webm");
+  await uploadFiles("video/clip.webm");
   await page.waitForSelector(".video-summary");
   const sliders = page.locator(".gif-settings-card input[type=range]");
-  await setRange(sliders.nth(0), "0.5");
-  await setRange(sliders.nth(1), "1");
-  await setRange(sliders.nth(2), "5");
+  await setRange(sliders.nth(0), "1.5");
+  await setRange(sliders.nth(1), "0.5");
+  await setRange(sliders.nth(2), "10");
   await setRange(sliders.nth(3), "320");
   await setRange(sliders.nth(4), "32");
   await clickButton(page.locator(".gif-settings-card"), "生成 GIF");
@@ -1119,15 +1170,16 @@ const REAL_MARKITDOWN =
 
 test("文档转 Markdown：真实转换器", { skip: !fs.existsSync(REAL_MARKITDOWN) }, async () => {
   const selectAndConvert = async (fileName) => {
-    await app.evaluate(({ ipcMain }, filePath) => {
+    const filePath = path.join(FIX, fileName);
+    await app.evaluate(({ ipcMain }, file) => {
       ipcMain.removeHandler("select-markitdown-file");
-      ipcMain.handle("select-markitdown-file", async () => ({
-        path: filePath,
-        name: filePath.split("/").pop(),
-        size: 1,
-        extension: filePath.split(".").pop().toUpperCase(),
-      }));
-    }, path.join(FIX, fileName));
+      ipcMain.handle("select-markitdown-file", async () => file);
+    }, {
+      path: filePath,
+      name: path.basename(filePath),
+      size: 1,
+      extension: filePath.split(".").pop().toUpperCase(),
+    });
     await clickButton(page.locator(".document-drop-zone"), "选择文件");
     await page.waitForSelector(".document-summary");
     await clickButton(page.locator(".document-summary"), "转换为 Markdown");
@@ -1146,15 +1198,20 @@ test("文档转 Markdown：真实转换器", { skip: !fs.existsSync(REAL_MARKITD
     process.env.MARKITDOWN_BIN = bin;
   }, REAL_MARKITDOWN);
   try {
-    await selectAndConvert("doc.txt");
+    await selectAndConvert("documents/doc.txt");
     assert.match(await page.locator(".markdown-output").inputValue(), /hello markitdown/);
     await clickButton(page.locator(".document-converter-header"), "清空");
 
-    await selectAndConvert("multi.pdf");
+    await selectAndConvert("documents/multi.pdf");
     assert.match(await page.locator(".markdown-output").inputValue(), /Page 1/);
     await clickButton(page.locator(".document-converter-header"), "清空");
 
-    await selectAndConvert("doc.pdf");
+    await selectAndConvert("images/picture.jpg");
+    await waitForText(".error-box", "未提取到 Markdown 内容", 60000);
+    assert.equal(await page.locator(".markdown-output").inputValue(), "");
+    await clickButton(page.locator(".document-converter-header"), "清空");
+
+    await selectAndConvert("documents/doc.pdf");
     await waitForText(".error-box", "未提取到 Markdown 内容", 60000);
     assert.equal(await page.locator(".markdown-output").inputValue(), "");
   } finally {
@@ -1169,17 +1226,17 @@ test("文档转 Markdown：真实转换器", { skip: !fs.existsSync(REAL_MARKITD
         size: 17,
         extension: "TXT",
       }));
-    }, path.join(FIX, "doc.txt"));
+    }, path.join(FIX, "documents/doc.txt"));
   }
 });
 
 test("图片去水印：非法文件与参数调整", async () => {
   await openModule("图片去水印");
-  await uploadFiles("doc.txt");
+  await uploadFiles("documents/doc.txt");
   await waitForText(".error-box", "请选择图片文件");
 
   await clickButton(page.locator(".watermark-removal-header"), "清空");
-  await uploadFiles("photo.png");
+  await uploadFiles("images/photo.png");
   await page.waitForSelector(".watermark-mask-canvas");
   const sliders = page.locator(".watermark-setting-field input[type=range]");
   await setRange(sliders.nth(0), "14");
@@ -1199,11 +1256,11 @@ test("图片去水印：非法文件与参数调整", async () => {
 
 test("PDF：损坏文件与 JPG 质量", async () => {
   await openModule("PDF 转图片");
-  await uploadFiles("corrupt.pdf");
+  await uploadFiles("documents/corrupt.pdf");
   await page.waitForSelector(".error-box", { timeout: 30000 });
 
   await clickButton(page.locator(".pdf-to-images-header"), "清空");
-  await uploadFiles("doc.pdf");
+  await uploadFiles("documents/doc.pdf");
   await page.waitForSelector(".pdf-file-name");
   await page.locator(".pdf-format-switch button", { hasText: "JPG" }).click();
   await setRange(page.locator(".pdf-setting-field input[type=range]").nth(1), "60");
@@ -1223,7 +1280,7 @@ test("文档转 Markdown：拖拽文件与编辑后保存", async () => {
     input.id = "e2e-drop-file";
     document.body.appendChild(input);
   });
-  await page.locator("#e2e-drop-file").setInputFiles(path.join(FIX, "doc.txt"));
+  await page.locator("#e2e-drop-file").setInputFiles(path.join(FIX, "documents/doc.txt"));
   await page.evaluate(() => {
     const input = document.getElementById("e2e-drop-file");
     const transfer = new DataTransfer();
@@ -1236,7 +1293,7 @@ test("文档转 Markdown：拖拽文件与编辑后保存", async () => {
   await page.waitForSelector(".document-summary");
   await clickButton(page.locator(".document-summary"), "转换为 Markdown");
   await page.waitForFunction(
-    () => document.querySelector(".markdown-output")?.value?.includes("Converted"),
+    () => /Converted|hello markitdown/.test(document.querySelector(".markdown-output")?.value || ""),
   );
   await page.locator(".markdown-output").fill("# Edited markdown");
   const md = await downloadFrom(
@@ -1248,7 +1305,7 @@ test("文档转 Markdown：拖拽文件与编辑后保存", async () => {
 
 test("图片转换：GIF/ICO 输出", async () => {
   await openModule("图片转换");
-  await uploadFiles("picture.jpg");
+  await uploadFiles("images/picture.jpg");
   await page.waitForSelector(".image-batch-card");
   await page.locator(".batch-format-selector .format-btn", { hasText: "GIF" }).click();
   await page.locator(".batch-convert-btn").click();
@@ -1259,7 +1316,7 @@ test("图片转换：GIF/ICO 输出", async () => {
   assertGif(gif);
 
   await clickButton(page.locator(".image-converter-header"), "清空");
-  await uploadFiles("picture.jpg");
+  await uploadFiles("images/picture.jpg");
   await page.waitForSelector(".image-batch-card");
   await page.locator(".batch-format-selector .format-btn", { hasText: "ICO" }).click();
   await page.locator(".batch-convert-btn").click();
@@ -1273,18 +1330,18 @@ test("图片转换：GIF/ICO 输出", async () => {
 
 test("图片转换：损坏图片报错", async () => {
   await openModule("图片转换");
-  await uploadFiles("corrupt.png");
+  await uploadFiles("images/corrupt.png");
   await page.waitForSelector(".error-box", { timeout: 20000 });
 });
 
 test("图片转换与 PDF：拖拽上传", async () => {
   await openModule("图片转换");
   await clickButton(page.locator(".image-converter-header"), "清空");
-  await dropFile(".image-converter .upload-zone", "photo.png");
+  await dropFile(".image-converter .upload-zone", "images/photo.png");
   await page.waitForSelector(".image-batch-card");
 
   await openModule("PDF 转图片");
-  await dropFile(".pdf-upload-zone", "doc.pdf");
+  await dropFile(".pdf-upload-zone", "documents/doc.pdf");
   await page.waitForSelector(".pdf-file-name");
 });
 
@@ -1330,6 +1387,93 @@ test("屏幕取色：历史上限 50", async () => {
     );
   }
   assert.equal(await page.locator(".history-item").count(), 50);
+  const metrics = await page.locator(".history-list").evaluate((el) => ({
+    overflowY: getComputedStyle(el).overflowY,
+    scrollHeight: el.scrollHeight,
+    clientHeight: el.clientHeight,
+    panelHeight: el.closest(".history-panel").getBoundingClientRect().height,
+  }));
+  assert.equal(metrics.overflowY, "auto");
+  assert.ok(metrics.scrollHeight > metrics.clientHeight);
+  assert.ok(metrics.panelHeight <= 540);
+});
+
+test("JSON：大对象格式化", async () => {
+  await openModule("JSON 格式化");
+  const data = {};
+  for (let index = 0; index < 200; index += 1) {
+    data[`key_${index}`] = { index, active: index % 2 === 0 };
+  }
+  await page.locator("textarea.json-input").fill(JSON.stringify(data));
+  await clickButton(page.locator(".json-formatter-header"), "格式化");
+  await page.waitForFunction(
+    () => document.querySelectorAll(".json-key").length >= 200,
+    null,
+    { timeout: 20000 },
+  );
+});
+
+test("截图悬浮：连续截图与悬浮窗缩放", { skip: SKIP_SCREEN }, async () => {
+  await page.reload();
+  await openModule("截图悬浮");
+  await clickButton(page.locator(".screenshot-float-header .header-actions"), "刷新源");
+  await page.waitForSelector(".source-item", { timeout: 30000 });
+  await page.locator(".source-item").first().click();
+
+  for (let index = 0; index < 2; index += 1) {
+    await clickButton(page.locator(".screenshot-float-header .header-actions"), "截取整屏");
+    await page.waitForSelector(".crop-overlay", { timeout: 30000 });
+    const preview = page.locator(".crop-preview-wrapper");
+    const box = await preview.boundingBox();
+    await page.mouse.move(box.x + 30, box.y + 30);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.55, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForFunction(
+      (expected) => document.querySelectorAll(".screenshot-card").length === expected,
+      index + 1,
+      { timeout: 30000 },
+    );
+  }
+
+  const floatPromise = app.waitForEvent("window");
+  await page
+    .locator(".screenshot-card")
+    .first()
+    .locator('button[title="创建悬浮窗"]')
+    .click();
+  const floatWindow = await floatPromise;
+  await floatWindow.waitForLoadState("domcontentloaded");
+  const before = await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows().find((w) =>
+      w.webContents.getURL().startsWith("data:text/html"),
+    );
+    const bounds = win.getBounds();
+    win.setSize(bounds.width + 80, bounds.height + 60);
+    return { width: bounds.width, height: bounds.height };
+  });
+  const after = await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows().find((w) =>
+      w.webContents.getURL().startsWith("data:text/html"),
+    );
+    return win.getBounds();
+  });
+  assert.ok(after.width > before.width);
+  assert.ok(after.height > before.height);
+
+  await floatWindow.locator("#closeBtn").click();
+  await app.evaluate(
+    ({ BrowserWindow }) =>
+      new Promise((resolve) => {
+        const win = BrowserWindow.getAllWindows().find((w) =>
+          w.webContents.getURL().startsWith("data:text/html"),
+        );
+        if (!win) return resolve(true);
+        win.once("closed", () => resolve(true));
+      }),
+  );
+  await page.locator(".screenshot-card").first().locator('button[title="删除"]').click();
+  await page.locator(".screenshot-card").first().locator('button[title="删除"]').click();
 });
 
 test("文档转 Markdown：转换失败提示", async () => {
@@ -1347,7 +1491,7 @@ test("文档转 Markdown：转换失败提示", async () => {
       success: false,
       error: "MarkItDown 转换失败：\nboom: cannot convert",
     }));
-  }, path.join(FIX, "doc.txt"));
+  }, path.join(FIX, "documents/doc.txt"));
   await clickButton(page.locator(".document-drop-zone"), "选择文件");
   await page.waitForSelector(".document-summary");
   await clickButton(page.locator(".document-summary"), "转换为 Markdown");
