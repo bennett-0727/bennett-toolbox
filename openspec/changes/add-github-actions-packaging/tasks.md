@@ -10,7 +10,7 @@
 
 - [x] 2.1 新增 `.github/workflows/release.yml`，配置 `v*` tag 与 `workflow_dispatch` 触发，并用 YAML 解析或 `actionlint` 验证语法
 - [x] 2.2 添加构建步骤：Node 26、`npm ci`、`npm run build`、`npm run build:electron`，确认本地按相同命令可执行
-- [x] 2.3 添加矩阵任务：macOS x64（macos-15-intel）、macOS arm64（macos-15）、Windows x64/arm64（windows-latest），执行 `electron-builder --publish never`
+- [x] 2.3 添加矩阵任务：macOS x64（macos-26-intel）、macOS arm64（macos-26）、Windows x64/arm64（windows-latest），执行 `electron-builder --publish never`
 - [x] 2.4 添加 artifact 上传步骤，确认 artifact 名称包含平台与架构
 - [x] 2.5 添加 tag 触发的 release job：下载全部 artifacts 并附加到对应 GitHub Release
 - [x] 2.6 tag 构建前将 `package.json` 版本同步为 tag 版本（去掉 `v` 前缀），确保产物文件名与版本一致

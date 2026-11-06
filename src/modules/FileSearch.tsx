@@ -165,7 +165,11 @@ function FileSearch() {
               await z(X, G + 1);
             }
           }
-        } catch {}
+        } catch (error) {
+          if (G === 0) {
+            throw error;
+          }
+        }
       }
     };
     try {
@@ -183,7 +187,7 @@ function FileSearch() {
         progress: "",
         results: [],
         totalScanned: 0,
-        error: k instanceof Error ? k.message : "搜索失败"
+        error: k instanceof Error ? `搜索失败：${k.message}` : "搜索失败"
       });
     }
   }, [r, e, s]);

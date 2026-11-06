@@ -375,6 +375,15 @@ test("文件搜索：目录选择、搜索、清空", async () => {
   const names = await page.locator(".result-item .file-name").allTextContents();
   assert.deepEqual(new Set(names), new Set(["report-2026.txt", "report-draft.md"]));
 
+  await page.locator(".results-header .size-cell").click();
+  await page.waitForFunction(
+    () => document.querySelector(".result-item .file-name")?.textContent === "report-draft.md",
+  );
+  await page.locator(".results-header .size-cell").click();
+  await page.waitForFunction(
+    () => document.querySelector(".result-item .file-name")?.textContent === "report-2026.txt",
+  );
+
   await clickButton(page.locator(".file-search-header"), "清空");
   await page.waitForSelector(".empty-state");
 });
@@ -689,12 +698,9 @@ test("文件搜索：无效目录静默返回空结果，恢复有效目录后�
   await openModule("文件搜索");
   await page.locator(".path-input").fill("/tmp/bennett-missing-directory");
   await page.locator(".search-input").fill("report");
-  await page.waitForFunction(
-    () => [...document.querySelectorAll(".empty-text")].some((el) => el.textContent === "未找到匹配的文件"),
-    null,
-    { timeout: 20000 },
-  );
-  assert.equal(await page.locator(".error-box").count(), 0);
+  await page.waitForSelector(".error-box", { timeout: 20000 });
+  await waitForText(".error-box", "搜索失败");
+  assert.equal(await page.locator(".result-item").count(), 0);
 
   await page.locator(".path-input").fill(SEARCH_DIR);
   await page.locator(".search-input").fill("photo");
@@ -704,6 +710,28 @@ test("文件搜索：无效目录静默返回空结果，恢复有效目录后�
     { timeout: 20000 },
   );
   assert.equal(await page.locator(".result-item .file-name").first().textContent(), "photo-final.png");
+});
+
+test("文件搜索：子目录不可读仍继续", async () => {
+  const dir = "/tmp/bennett-e2e-locked";
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(path.join(dir, "blocked"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "hello.txt"), "hello\n");
+  fs.chmodSync(path.join(dir, "blocked"), 0o000);
+  try {
+    await openModule("文件搜索");
+    await page.locator(".path-input").fill(dir);
+    await page.locator(".search-input").fill("hello");
+    await page.waitForFunction(
+      () => document.querySelectorAll(".result-item").length === 1,
+      null,
+      { timeout: 20000 },
+    );
+    assert.equal(await page.locator(".error-box").count(), 0);
+  } finally {
+    fs.chmodSync(path.join(dir, "blocked"), 0o755);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("文档转 Markdown：清空与不支持类型", async () => {
@@ -726,6 +754,32 @@ test("文档转 Markdown：清空与不支持类型", async () => {
   await clickButton(page.locator(".document-converter-header"), "清空");
   assert.equal(await page.locator(".document-summary").count(), 0);
   assert.equal(await page.locator(".markdown-output").inputValue(), "");
+
+  await app.evaluate(({ ipcMain }, badPath) => {
+    ipcMain.removeHandler("select-markitdown-file");
+    ipcMain.handle("select-markitdown-file", async () => ({
+      path: badPath,
+      name: "bad.xyz",
+      size: 10,
+      extension: "XYZ",
+    }));
+  }, path.join(FIX, "bad.xyz"));
+  await clickButton(page.locator(".document-drop-zone"), "选择文件");
+  await waitForText(".error-box", "暂不支持此文件类型");
+  assert.equal(await page.locator(".document-summary").count(), 0);
+
+  await app.evaluate(({ ipcMain }, goodPath) => {
+    ipcMain.removeHandler("select-markitdown-file");
+    ipcMain.handle("select-markitdown-file", async () => ({
+      path: goodPath,
+      name: "doc.txt",
+      size: 17,
+      extension: "TXT",
+    }));
+  }, path.join(FIX, "doc.txt"));
+  await clickButton(page.locator(".document-drop-zone"), "选择文件");
+  await page.waitForSelector(".document-summary");
+  await clickButton(page.locator(".document-converter-header"), "清空");
 
   await page.evaluate(() => {
     const input = document.createElement("input");
@@ -757,6 +811,17 @@ test("截图悬浮：取消裁剪", async () => {
   await clickButton(page.locator(".crop-overlay"), "取消");
   assert.equal(await page.locator(".crop-overlay").count(), 0);
   assert.equal(await page.locator(".screenshot-card").count(), 0);
+});
+
+test("截图悬浮：Esc 取消框选", async () => {
+  await page.reload();
+  await openModule("截图悬浮");
+  const selectionPromise = app.waitForEvent("window", { timeout: 45000 });
+  await clickButton(page.locator(".screenshot-float-header .header-actions"), "框选截图");
+  const selectionPage = await selectionPromise;
+  await selectionPage.waitForLoadState("domcontentloaded");
+  await selectionPage.keyboard.press("Escape").catch(() => {});
+  await page.waitForFunction(() => document.querySelectorAll(".screenshot-card").length === 0);
 });
 
 test("截图悬浮：权限拒绝提示", async () => {
@@ -820,6 +885,10 @@ test("屏幕取色：不支持提示、历史回选与持久化", async () => {
   );
   assert.equal(await page.locator(".history-item").count(), 2);
 
+  await page.locator(".pick-btn-overlay").click();
+  await page.waitForFunction(() => !document.querySelector(".pick-btn-overlay")?.disabled);
+  assert.equal(await page.locator(".history-item").count(), 2);
+
   await page.locator(".history-item").nth(1).click();
   await page.waitForFunction(
     () => document.querySelector(".color-value-large")?.textContent === "#3366FF",
@@ -838,4 +907,27 @@ test("侧边栏：损坏的本地顺序回退默认", async () => {
   await page.waitForSelector(".nav-item");
   assert.equal(await page.locator(".nav-item").count(), 11);
   assert.equal(await page.locator(".nav-item .nav-label").first().textContent(), "JSON 格式化");
+});
+
+test("主进程 IPC 错误路径", async () => {
+  const missingHeic = await page.evaluate(() =>
+    window.require("electron").ipcRenderer.invoke("convert-heic-image", {
+      filePath: "/tmp/does-not-exist.heic",
+      targetFormat: "png",
+    }),
+  );
+  assert.equal(missingHeic.success, false);
+
+  const badFormat = await page.evaluate((heicPath) =>
+    window.require("electron").ipcRenderer.invoke("convert-heic-image", {
+      filePath: heicPath,
+      targetFormat: "gif",
+    }),
+    "/Users/pms/bennett/bennett-toolbox-source/recovered/tests/fixtures/photo.heic");
+  assert.equal(badFormat.success, false);
+
+  const missingDoc = await page.evaluate(() =>
+    window.require("electron").ipcRenderer.invoke("convert-file-to-markdown", "/tmp/does-not-exist.pdf"),
+  );
+  assert.equal(missingDoc.success, false);
 });

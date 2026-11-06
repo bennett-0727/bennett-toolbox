@@ -77,13 +77,12 @@ function DocumentConverter() {
         if (!N) {
           return;
         }
-        t(N);
-        m();
+        w(N.path, N.name, N.size);
       } catch (N) {
         i(N instanceof Error ? N.message : "选择文件失败");
       }
     }
-  }, [m]);
+  }, [m, w]);
   const y = React.useCallback(N => {
     N.preventDefault();
     const D = N.dataTransfer.files[0];
