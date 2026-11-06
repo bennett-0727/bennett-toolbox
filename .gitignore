@@ -4,3 +4,6 @@ dist-electron/
 .e2e/
 .DS_Store
 *.log
+
+.codegraph/
+graphify-out/
