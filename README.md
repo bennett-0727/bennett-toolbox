@@ -27,17 +27,30 @@
 - Node.js v26.13.0（最新 LTS）
 - `npx tsc --noEmit` 0 错误
 - `npx vite build` 成功
-- `npx e2e run` 3/3 通过（11 个模块渲染、JSON 格式化与语法错误、模块切换）
+- 浏览器 e2e：3/3 通过
+- Electron 打包版功能 e2e：14/14 通过（11 个模块 + 侧边栏 + 主进程 IPC）
+- Electron 打包版冒烟 e2e：7/7 通过
 - `npm run build:electron` 成功
 
 ## 快速开始
 
 ```bash
 npm install
-npm run dev          # 前端开发服务器 http://127.0.0.1:5173
-npm run test:e2e     # Playwright 冒烟测试
-npm run build:all    # tsc + 前端构建 + 主进程构建
+npm run dev              # 前端开发服务器 http://127.0.0.1:5173
+npm run test:e2e         # 浏览器冒烟测试（3 项）
+npm run build:all        # 构建前端与主进程
+npm run test:electron    # Electron 功能测试（14 项，需先构建）
+npm run test:electron:smoke  # Electron 冒烟测试（7 项）
 ```
+
+对打包产物运行功能测试：
+
+```bash
+ELECTRON_APP_PATH="$PWD/release/Bennett Toolbox-darwin-arm64/Bennett Toolbox.app/Contents/MacOS/Bennett Toolbox" \
+  npm run test:electron
+```
+
+测试素材位于 `tests/fixtures/`。
 
 运行 Electron 需要系统安装 Electron 28 运行时（`electron .`）。
 
@@ -82,6 +95,30 @@ npm run build:all    # tsc + 前端构建 + 主进程构建
 | 文档转 MD | `modules/DocumentConverter.tsx` | 调用 MarkItDown 转换文档 |
 | 截图悬浮 | `modules/ScreenshotFloat.tsx` | 屏幕源截图、框选截图、悬浮置顶 |
 | 屏幕取色 | `modules/ColorPicker.tsx` | EyeDropper 取色与历史记录 |
+
+## 发布与安装包
+
+推送 `v*` tag 时，GitHub Actions 会自动构建并附加到对应 Release；也可以在 Actions 页面手动触发。
+
+产物清单：
+
+- macOS x64 / arm64：`dmg` 与 `zip`
+- Windows x64 / arm64：NSIS 安装包（`exe`）
+
+文件命名：`Bennett-Toolbox-<version>-<arch>.<ext>`。
+
+本地打包：
+
+```bash
+npm run build:all
+npm run package:mac   # dmg + zip
+npm run package:win   # NSIS exe
+```
+
+产物默认未签名、未公证：
+
+- macOS 首次打开需右键「打开」，或在「系统设置 > 隐私与安全性」中允许。
+- Windows 会出现 SmartScreen 提示，选择「更多信息 > 仍要运行」。
 
 ## 开发说明
 

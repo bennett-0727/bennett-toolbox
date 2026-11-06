@@ -2,6 +2,20 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.1.2] - 2026-11-06
+
+### Added
+
+- GitHub Actions 自动打包：macOS x64/arm64（`dmg` + `zip`）、Windows x64/arm64（NSIS）
+- 推送 `v*` tag 自动构建并附加到 GitHub Release，支持手动触发
+- tag 构建自动同步 `package.json` 版本号
+- 本地打包脚本 `package:mac`、`package:win`
+- Electron 全功能 e2e（14 项）与 `tests/fixtures/` 测试素材
+
+### Fixed
+
+- PDF 转图片在 Electron 28 下缺少 `Promise.try`、`Uint8Array.toHex`、`Map.getOrInsertComputed` 等 API，补充 core-js polyfill
+
 ## [1.1.1] - 2026-11-06
 
 首个 GitHub 版本。
