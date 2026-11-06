@@ -4,8 +4,7 @@
 
 ## 已验证
 
-- Node.js v26.13.0（最新 LTS）
-- `npx tsc --noEmit` 0 错误
+- Node.js v26.13.0（最新 LTS）- `npx tsc --noEmit` 0 错误
 - `npx vite build` 成功（CSS 产物哈希与官方包一致：`index-Bf_C6pjF.css`）
 - `npx e2e run` 3/3 通过（11 个模块渲染、JSON 格式化与语法错误、模块切换）
 - `npm run build:electron` 成功
