@@ -91,10 +91,72 @@ jobs:
             release/*.exe
           if-no-files-found: error
 
+  test-web:
+    name: Web e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "26.13.0"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install browser
+        run: npx e2e-web install chromium --with-deps
+
+      - name: Run browser e2e
+        run: npm run test:e2e
+
+  test-electron:
+    name: Electron e2e (macOS x64)
+    runs-on: macos-15-intel
+    env:
+      E2E_SKIP_SCREEN: "1"
+      REAL_MARKITDOWN_BIN: ${{ github.workspace }}/vendor/markitdown/markitdown
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "26.13.0"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Prepare MarkItDown
+        env:
+          MATRIX_PLATFORM: mac
+          MATRIX_ARCH: x64
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/prepare-markitdown.mjs
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Build main process
+        run: npm run build:electron
+
+      - name: Run Electron e2e
+        run: node tests/electron.full.mjs
+
   release:
     name: Publish Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, test-web, test-electron]
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts

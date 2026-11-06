@@ -10,11 +10,12 @@
 - 推送 `v*` tag 自动构建并附加到 GitHub Release，支持手动触发
 - tag 构建自动同步 `package.json` 版本号
 - 本地打包脚本 `package:mac`、`package:win`
-- Electron 全功能 e2e（40 项）与 `tests/fixtures/` 测试素材
+- Electron 全功能 e2e（45 项）与 `tests/fixtures/` 测试素材
 - README 功能截图与介绍（11 个模块）
 - 本地打包通过 `extraResources` 内置 MarkItDown，真实转换器 e2e 覆盖 TXT/PDF
 - `npm run setup:markitdown` 准备本地转换器
 - CI 自动准备 MarkItDown：macOS arm64 下载 Release 资源，其余平台 PyInstaller 构建
+- CI 增加浏览器 e2e 与 macOS x64 Electron e2e
 
 ### Changed
 
@@ -26,6 +27,8 @@
 - 文档转 Markdown 通过“选择文件”可绕过类型校验，现与拖拽一致并提示不支持类型
 - 文件搜索根目录不存在时静默返回空结果，现显示“搜索失败”；不可读子目录继续跳过
 - MarkItDown 转换成功但内容为空时（如图片型 PDF）无任何提示，现显示“未提取到 Markdown 内容”
+- 图片转换的 GIF/ICO 输出实际为 PNG，现使用真正编码器输出对应格式
+- 损坏图片被静默接受，现提示图片加载失败
 
 ## [1.1.1] - 2026-11-06
 

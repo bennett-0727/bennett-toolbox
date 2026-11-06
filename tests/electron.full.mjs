@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
 import { _electron as electron } from "playwright-core";
@@ -8,6 +9,7 @@ import JSZip from "jszip";
 const ROOT = path.resolve(import.meta.dirname, "..");
 const FIX = path.join(ROOT, "tests/fixtures");
 const SEARCH_DIR = path.join(FIX, "search");
+const SKIP_SCREEN = process.env.E2E_SKIP_SCREEN === "1";
 const MD_BIN = path.join(FIX, "markitdown.sh");
 const DOWNLOAD_DIR = "/tmp/bennett-e2e/downloads";
 
@@ -33,6 +35,25 @@ async function openModule(label, heading = label) {
 async function uploadFiles(...files) {
   const input = page.locator('input[type="file"]').first();
   await input.setInputFiles(files.map((file) => path.join(FIX, file)));
+}
+
+async function dropFile(selector, fileName) {
+  await page.evaluate(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.id = "e2e-drop";
+    document.body.appendChild(input);
+  });
+  await page.locator("#e2e-drop").setInputFiles(path.join(FIX, fileName));
+  await page.evaluate((target) => {
+    const input = document.getElementById("e2e-drop");
+    const transfer = new DataTransfer();
+    transfer.items.add(input.files[0]);
+    document.querySelector(target).dispatchEvent(
+      new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }),
+    );
+    input.remove();
+  }, selector);
 }
 
 async function clickButton(scope, text) {
@@ -456,7 +477,7 @@ test("文档转 Markdown：转换、复制、保存、失败提示", async () =>
 
 });
 
-test("截图悬浮：整屏截图、裁剪、悬浮窗、复制、删除", async () => {
+test("截图悬浮：整屏截图、裁剪、悬浮窗、复制、删除", { skip: SKIP_SCREEN }, async () => {
   await openModule("截图悬浮");
   await clickButton(page.locator(".screenshot-float-header .header-actions"), "刷新源");
   await page.waitForSelector(".source-item", { timeout: 30000 });
@@ -513,7 +534,7 @@ test("截图悬浮：整屏截图、裁剪、悬浮窗、复制、删除", async
   );
 });
 
-test("截图悬浮：系统框选截图回传", async () => {
+test("截图悬浮：系统框选截图回传", { skip: SKIP_SCREEN }, async () => {
   await page.reload();
   await page.waitForSelector(".nav-item");
   await openModule("截图悬浮");
@@ -866,7 +887,7 @@ test("文档转 Markdown：空内容提示", async () => {
   }, path.join(FIX, "doc.txt"));
 });
 
-test("截图悬浮：取消裁剪", async () => {
+test("截图悬浮：取消裁剪", { skip: SKIP_SCREEN }, async () => {
   await page.reload();
   await openModule("截图悬浮");
   await clickButton(page.locator(".screenshot-float-header .header-actions"), "刷新源");
@@ -879,7 +900,7 @@ test("截图悬浮：取消裁剪", async () => {
   assert.equal(await page.locator(".screenshot-card").count(), 0);
 });
 
-test("截图悬浮：Esc 取消框选", async () => {
+test("截图悬浮：Esc 取消框选", { skip: SKIP_SCREEN }, async () => {
   await page.reload();
   await openModule("截图悬浮");
   const selectionPromise = app.waitForEvent("window", { timeout: 45000 });
@@ -890,7 +911,7 @@ test("截图悬浮：Esc 取消框选", async () => {
   await page.waitForFunction(() => document.querySelectorAll(".screenshot-card").length === 0);
 });
 
-test("截图悬浮：权限拒绝提示", async () => {
+test("截图悬浮：权限拒绝提示", { skip: SKIP_SCREEN }, async () => {
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler("check-screen-permission");
     ipcMain.handle("check-screen-permission", async () => "denied");
@@ -908,7 +929,7 @@ test("截图悬浮：权限拒绝提示", async () => {
   });
 });
 
-test("截图悬浮：屏幕源获取失败", async () => {
+test("截图悬浮：屏幕源获取失败", { skip: SKIP_SCREEN }, async () => {
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler("get-desktop-sources");
     ipcMain.handle("get-desktop-sources", async () => {
@@ -1092,7 +1113,9 @@ test("视频转 GIF：自定义宽度", async () => {
   assertGif(gif);
 });
 
-const REAL_MARKITDOWN = "/Applications/Bennett Toolbox.app/Contents/Resources/markitdown/markitdown";
+const REAL_MARKITDOWN =
+  process.env.REAL_MARKITDOWN_BIN ||
+  "/Applications/Bennett Toolbox.app/Contents/Resources/markitdown/markitdown";
 
 test("文档转 Markdown：真实转换器", { skip: !fs.existsSync(REAL_MARKITDOWN) }, async () => {
   const selectAndConvert = async (fileName) => {
@@ -1221,6 +1244,92 @@ test("文档转 Markdown：拖拽文件与编辑后保存", async () => {
   );
   assert.equal(fs.readFileSync(downloadPath(md), "utf8"), "# Edited markdown");
   await clickButton(page.locator(".document-converter-header"), "清空");
+});
+
+test("图片转换：GIF/ICO 输出", async () => {
+  await openModule("图片转换");
+  await uploadFiles("picture.jpg");
+  await page.waitForSelector(".image-batch-card");
+  await page.locator(".batch-format-selector .format-btn", { hasText: "GIF" }).click();
+  await page.locator(".batch-convert-btn").click();
+  await waitForText(".batch-success", "张已转换");
+  const gif = await downloadFrom(
+    page.locator(".image-batch-card").first().locator("button", { hasText: "下载" }),
+  );
+  assertGif(gif);
+
+  await clickButton(page.locator(".image-converter-header"), "清空");
+  await uploadFiles("picture.jpg");
+  await page.waitForSelector(".image-batch-card");
+  await page.locator(".batch-format-selector .format-btn", { hasText: "ICO" }).click();
+  await page.locator(".batch-convert-btn").click();
+  await waitForText(".batch-success", "张已转换");
+  const ico = await downloadFrom(
+    page.locator(".image-batch-card").first().locator("button", { hasText: "下载" }),
+  );
+  const icoBytes = downloadBytes(ico);
+  assert.equal(icoBytes.subarray(0, 4).toString("hex"), "00000100");
+});
+
+test("图片转换：损坏图片报错", async () => {
+  await openModule("图片转换");
+  await uploadFiles("corrupt.png");
+  await page.waitForSelector(".error-box", { timeout: 20000 });
+});
+
+test("图片转换与 PDF：拖拽上传", async () => {
+  await openModule("图片转换");
+  await clickButton(page.locator(".image-converter-header"), "清空");
+  await dropFile(".image-converter .upload-zone", "photo.png");
+  await page.waitForSelector(".image-batch-card");
+
+  await openModule("PDF 转图片");
+  await dropFile(".pdf-upload-zone", "doc.pdf");
+  await page.waitForSelector(".pdf-file-name");
+});
+
+test("文件搜索：结果上限 500", async () => {
+  const dir = path.join(os.tmpdir(), "bennett-e2e-many");
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  for (let index = 0; index < 510; index += 1) {
+    fs.writeFileSync(path.join(dir, `match-${index}.txt`), "x");
+  }
+  try {
+    await openModule("文件搜索");
+    await page.locator(".path-input").fill(dir);
+    await page.locator(".search-input").fill("match");
+    await page.waitForFunction(
+      () => document.querySelectorAll(".result-item").length === 500,
+      null,
+      { timeout: 30000 },
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("屏幕取色：历史上限 50", async () => {
+  await openModule("屏幕取色");
+  await page.evaluate(() => {
+    window.__colorIndex = 0;
+    window.EyeDropper = class {
+      open() {
+        window.__colorIndex += 1;
+        return Promise.resolve({
+          sRGBHex: `#${window.__colorIndex.toString(16).padStart(6, "0")}`,
+        });
+      }
+    };
+  });
+  for (let index = 0; index < 51; index += 1) {
+    await page.locator(".pick-btn-overlay").click();
+    await page.waitForFunction(
+      (expected) => document.querySelector(".color-value-large")?.textContent === expected,
+      `#${(index + 1).toString(16).padStart(6, "0").toUpperCase()}`,
+    );
+  }
+  assert.equal(await page.locator(".history-item").count(), 50);
 });
 
 test("文档转 Markdown：转换失败提示", async () => {

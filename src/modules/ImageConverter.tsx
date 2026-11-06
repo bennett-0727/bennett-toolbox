@@ -1,5 +1,6 @@
 import * as React from "react";
 import JSZip from "jszip";
+import { GIFEncoder, quantize, applyPalette } from "gifenc";
 
 const isElectron = typeof window !== "undefined" && typeof window.require == "function";
 const electron = isElectron ? window.require("electron") : null;
@@ -74,17 +75,17 @@ const rP = (r: File) => new Promise<string>((t, e) => {
   n.onerror = () => e(new Error("文件读取失败"));
   n.readAsText(r);
 });
-const sP = (r: string) => new Promise<{ width: number; height: number }>(t => {
-  const e = new Image();
-  e.onload = () => t({
-    width: e.width,
-    height: e.height
-  });
-  e.onerror = () => t({
-    width: 0,
-    height: 0
-  });
-  e.src = r;
+const sP = (r: string) => new Promise<{ width: number; height: number }>((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve({ width: image.width, height: image.height });
+  image.onerror = () => reject(new Error("图片加载失败"));
+  image.src = r;
+});
+const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result as string);
+  reader.onerror = () => reject(new Error("结果编码失败"));
+  reader.readAsDataURL(blob);
 });
 const iP = async r => (await fetch(r)).blob();
 function ImageConverter() {
@@ -216,6 +217,15 @@ function ImageConverter() {
       j.fillRect(0, 0, B.width, B.height);
     }
     j.drawImage(H, 0, 0);
+    if (W === "gif") {
+      const imageData = j.getImageData(0, 0, B.width, B.height).data;
+      const palette = quantize(imageData, 256);
+      const indexed = applyPalette(imageData, palette);
+      const encoder = GIFEncoder();
+      encoder.writeFrame(indexed, B.width, B.height, { palette, delay: 0, repeat: 0 });
+      encoder.finish();
+      return blobToDataUrl(new Blob([encoder.bytes()], { type: "image/gif" }));
+    }
     if (W === "ico") {
       const Z = document.createElement("canvas");
       const rt = Z.getContext("2d");
@@ -226,7 +236,21 @@ function ImageConverter() {
       Z.width = at;
       Z.height = at;
       rt.drawImage(H, 0, 0, at, at);
-      return Z.toDataURL("image/png");
+      const pngBytes = new Uint8Array(await (await fetch(Z.toDataURL("image/png"))).arrayBuffer());
+      const header = new ArrayBuffer(22);
+      const view = new DataView(header);
+      view.setUint16(0, 0, true);
+      view.setUint16(2, 1, true);
+      view.setUint16(4, 1, true);
+      view.setUint8(6, at === 256 ? 0 : at);
+      view.setUint8(7, at === 256 ? 0 : at);
+      view.setUint8(8, 0);
+      view.setUint8(9, 0);
+      view.setUint16(10, 1, true);
+      view.setUint16(12, 32, true);
+      view.setUint32(14, pngBytes.length, true);
+      view.setUint32(18, 22, true);
+      return blobToDataUrl(new Blob([header, pngBytes], { type: "image/x-icon" }));
     }
     const Y = wS.find(Z => Z.value === W);
     const Q = (Y == null ? undefined : Y.mime) || "image/png";
