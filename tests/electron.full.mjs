@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { after, before, test } from "node:test";
 import { _electron as electron } from "playwright-core";
+import JSZip from "jszip";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const FIX = path.join(ROOT, "tests/fixtures");
@@ -46,15 +47,48 @@ async function downloadFrom(locator, timeout = 20000) {
       }),
   );
   await locator.click();
-  return Promise.race([
+  const result = await Promise.race([
     waiter,
     new Promise((_, reject) =>
       setTimeout(() => reject(new Error("下载事件超时")), timeout),
     ),
   ]);
+  if (result.state !== "completed") {
+    throw new Error(`下载未完成: ${result.filename} (${result.state})`);
+  }
+  return result.filename;
 }
 
 const readClipboardText = () => app.evaluate(({ clipboard }) => clipboard.readText());
+
+const downloadPath = (name) => path.join(DOWNLOAD_DIR, name);
+const downloadBytes = (name) => fs.readFileSync(downloadPath(name));
+
+function assertPng(name) {
+  const bytes = downloadBytes(name);
+  assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a", `${name} 不是 PNG`);
+}
+
+function assertJpeg(name) {
+  const bytes = downloadBytes(name);
+  assert.equal(bytes.subarray(0, 3).toString("hex"), "ffd8ff", `${name} 不是 JPEG`);
+}
+
+function assertGif(name) {
+  const bytes = downloadBytes(name);
+  assert.equal(bytes.subarray(0, 4).toString(), "GIF8", `${name} 不是 GIF`);
+}
+
+function assertWebp(name) {
+  const bytes = downloadBytes(name);
+  assert.equal(bytes.subarray(0, 4).toString(), "RIFF", `${name} 不是 RIFF`);
+  assert.equal(bytes.subarray(8, 12).toString(), "WEBP", `${name} 不是 WebP`);
+}
+
+async function zipEntries(name) {
+  const zip = await JSZip.loadAsync(downloadBytes(name));
+  return Object.keys(zip.files).filter((entry) => !zip.files[entry].dir);
+}
 
 before(async () => {
   app = await electron.launch({
@@ -72,8 +106,10 @@ before(async () => {
     session.defaultSession.on("will-download", (event, item) => {
       const filename = item.getFilename();
       item.setSavePath(`${dir}/${filename}`);
-      const waiters = globalThis.__downloadWaiters.splice(0);
-      waiters.forEach((resolve) => resolve(filename));
+      item.once("done", (doneEvent, state) => {
+        const waiters = globalThis.__downloadWaiters.splice(0);
+        waiters.forEach((resolve) => resolve({ filename, state }));
+      });
     });
   }, DOWNLOAD_DIR);
 
@@ -479,4 +515,327 @@ test("屏幕取色：取色、格式转换、历史、复制、清空", async ()
 
   await clickButton(page.locator(".history-panel"), "清空");
   await page.waitForSelector(".empty-history");
+});
+
+test("JSON 折叠节点、无效状态与空状态", async () => {
+  await openModule("JSON 格式化");
+  const input = page.locator("textarea.json-input");
+  await input.fill('{"a":{"b":1},"c":[1,2]}');
+  await clickButton(page.locator(".json-formatter-header"), "格式化");
+
+  const expandable = page.locator(".json-line.expandable").first();
+  await expandable.click();
+  assert.match(await expandable.getAttribute("class"), /collapsed/);
+  await expandable.click();
+  assert.doesNotMatch(await expandable.getAttribute("class"), /collapsed/);
+
+  await clickButton(page.locator(".json-formatter-header"), "清空");
+  assert.equal(
+    await page.locator(".json-formatter-header button", { hasText: "复制结果" }).isDisabled(),
+    true,
+  );
+  assert.equal(await page.locator(".json-viewer-empty").count(), 1);
+});
+
+test("变量命名：复制、回车提交与清空", async () => {
+  const handler = (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ responseStatus: 200, responseData: { translatedText: "user profile" } }),
+    });
+  await page.route("**/api.mymemory.translated.net/**", handler);
+  await openModule("变量命名");
+  const input = page.locator(".translate-input");
+  await input.fill("用户信息");
+  await input.press("Enter");
+  await page.waitForSelector(".result-value");
+
+  const card = page.locator(".result-card").first();
+  const value = await card.locator(".result-value").textContent();
+  await card.click();
+  assert.equal(await readClipboardText(), value);
+  assert.match(await card.getAttribute("class"), /copied/);
+
+  await clickButton(page.locator(".translate-naming-header"), "清空");
+  assert.equal(await input.inputValue(), "");
+  assert.equal(await page.locator(".empty-state").count(), 1);
+  await page.unroute("**/api.mymemory.translated.net/**");
+});
+
+test("图片转换：非法文件、JPG 输出、多文件与单张下载", async () => {
+  await openModule("图片转换");
+  await uploadFiles("doc.txt");
+  await waitForText(".error-box", "请选择支持的图片文件");
+
+  await clickButton(page.locator(".image-converter-header"), "清空");
+  await uploadFiles("photo.png", "picture.jpg");
+  await page.waitForFunction(() => document.querySelectorAll(".image-batch-card").length === 2);
+  await page.locator(".batch-format-selector .format-btn", { hasText: "JPG" }).click();
+  await page.locator(".batch-convert-btn").click();
+  await page.waitForFunction(
+    () => document.querySelectorAll(".image-batch-card .format-badge.success").length === 2,
+    null,
+    { timeout: 30000 },
+  );
+
+  const single = await downloadFrom(
+    page.locator(".image-batch-card").first().locator("button", { hasText: "下载" }),
+  );
+  assert.match(single, /\.jpg$/i);
+  assertJpeg(single);
+
+  const zip = await downloadFrom(
+    page.locator(".batch-actions button", { hasText: "下载全部 ZIP" }),
+  );
+  const entries = await zipEntries(zip);
+  assert.equal(entries.length, 2);
+  assert.ok(entries.every((entry) => entry.endsWith(".jpg")));
+});
+
+test("图片压缩：非法文件、JPG 输出与单张下载", async () => {
+  await openModule("图片压缩", "图片批量压缩");
+  await uploadFiles("doc.txt");
+  await waitForText(".compress-error-box", "请选择支持的图片文件");
+
+  await clickButton(page.locator(".image-compressor-header"), "清空");
+  await uploadFiles("big.jpg");
+  await page.waitForSelector(".compress-card");
+  await page.locator(".compress-format-buttons .format-btn", { hasText: "JPG" }).click();
+  await clickButton(page.locator(".compress-control-body"), "批量压缩");
+  await page.waitForSelector(".compress-result-meta", { timeout: 60000 });
+
+  const single = await downloadFrom(
+    page.locator(".compress-card").first().locator("button", { hasText: "下载" }),
+  );
+  assert.match(single, /\.jpg$/i);
+  assertJpeg(single);
+});
+
+test("图片去水印：画笔模式与下载", async () => {
+  await openModule("图片去水印");
+  await uploadFiles("photo.png");
+  await page.waitForSelector(".watermark-mask-canvas");
+  await clickButton(page.locator(".tool-mode-switch"), "画笔");
+
+  const mask = page.locator(".watermark-mask-canvas");
+  const box = await mask.boundingBox();
+  await page.mouse.move(box.x + box.width * 0.42, box.y + box.height * 0.42);
+  await page.mouse.down();
+  for (let step = 1; step <= 8; step += 1) {
+    await page.mouse.move(
+      box.x + box.width * (0.42 + step * 0.02),
+      box.y + box.height * (0.42 + step * 0.01),
+    );
+  }
+  await page.mouse.up();
+  await clickButton(page.locator(".watermark-actions"), "去除水印");
+  await page.waitForSelector(".watermark-result-preview img", { timeout: 60000 });
+
+  const image = await downloadFrom(page.locator(".watermark-download-btn"));
+  assert.match(image, /\.png$/i);
+  assertPng(image);
+});
+
+test("PDF：非法文件、多页 PNG、单页下载与 ZIP 内容", async () => {
+  await openModule("PDF 转图片");
+  await uploadFiles("doc.txt");
+  await waitForText(".error-box", "请选择 PDF 文件");
+
+  await clickButton(page.locator(".pdf-to-images-header"), "清空");
+  await uploadFiles("multi.pdf");
+  await page.waitForSelector(".pdf-file-name");
+  await page.locator(".pdf-format-switch button", { hasText: "PNG" }).click();
+  await clickButton(page.locator(".pdf-settings-card"), "转换全部页面");
+  await page.waitForFunction(
+    () => document.querySelectorAll(".pdf-page-card").length === 2,
+    null,
+    { timeout: 60000 },
+  );
+
+  const pageFile = await downloadFrom(
+    page.locator(".pdf-page-card").first().locator("button", { hasText: "下载" }),
+  );
+  assert.match(pageFile, /\.png$/i);
+  assertPng(pageFile);
+
+  const zip = await downloadFrom(
+    page.locator(".pdf-result-actions button", { hasText: "下载全部 ZIP" }),
+  );
+  const entries = await zipEntries(zip);
+  assert.equal(entries.length, 2);
+  assert.ok(entries.every((entry) => entry.endsWith(".png")));
+});
+
+test("视频转 GIF：MP4 输入与非法文件", async () => {
+  await openModule("视频转 GIF");
+  await uploadFiles("doc.txt");
+  await waitForText(".error-box", "请选择视频文件");
+
+  await clickButton(page.locator(".video-to-gif-header"), "清空");
+  await uploadFiles("clip.mp4");
+  await page.waitForSelector(".video-summary");
+  await clickButton(page.locator(".gif-settings-card"), "生成 GIF");
+  await page.waitForSelector(".gif-preview-image", { timeout: 60000 });
+
+  const gif = await downloadFrom(
+    page.locator(".gif-result-footer button", { hasText: "下载 GIF" }),
+  );
+  assert.match(gif, /\.gif$/i);
+  assertGif(gif);
+});
+
+test("文件搜索：无效目录静默返回空结果，恢复有效目录后可搜索", async () => {
+  await openModule("文件搜索");
+  await page.locator(".path-input").fill("/tmp/bennett-missing-directory");
+  await page.locator(".search-input").fill("report");
+  await page.waitForFunction(
+    () => [...document.querySelectorAll(".empty-text")].some((el) => el.textContent === "未找到匹配的文件"),
+    null,
+    { timeout: 20000 },
+  );
+  assert.equal(await page.locator(".error-box").count(), 0);
+
+  await page.locator(".path-input").fill(SEARCH_DIR);
+  await page.locator(".search-input").fill("photo");
+  await page.waitForFunction(
+    () => document.querySelectorAll(".result-item").length === 1,
+    null,
+    { timeout: 20000 },
+  );
+  assert.equal(await page.locator(".result-item .file-name").first().textContent(), "photo-final.png");
+});
+
+test("文档转 Markdown：清空与不支持类型", async () => {
+  await openModule("文档转 MD", "文档转 Markdown");
+  await app.evaluate(({ ipcMain }, goodPath) => {
+    ipcMain.removeHandler("select-markitdown-file");
+    ipcMain.handle("select-markitdown-file", async () => ({
+      path: goodPath,
+      name: "doc.txt",
+      size: 17,
+      extension: "TXT",
+    }));
+  }, path.join(FIX, "doc.txt"));
+  await clickButton(page.locator(".document-drop-zone"), "选择文件");
+  await page.waitForSelector(".document-summary");
+  await clickButton(page.locator(".document-summary"), "转换为 Markdown");
+  await page.waitForFunction(
+    () => document.querySelector(".markdown-output")?.value?.includes("Converted"),
+  );
+  await clickButton(page.locator(".document-converter-header"), "清空");
+  assert.equal(await page.locator(".document-summary").count(), 0);
+  assert.equal(await page.locator(".markdown-output").inputValue(), "");
+
+  await page.evaluate(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.id = "e2e-temp-file";
+    document.body.appendChild(input);
+  });
+  await page.locator("#e2e-temp-file").setInputFiles(path.join(FIX, "bad.xyz"));
+  await page.evaluate(() => {
+    const input = document.getElementById("e2e-temp-file");
+    const transfer = new DataTransfer();
+    transfer.items.add(input.files[0]);
+    document.querySelector(".document-drop-zone").dispatchEvent(
+      new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }),
+    );
+    input.remove();
+  });
+  await waitForText(".error-box", "暂不支持此文件类型");
+});
+
+test("截图悬浮：取消裁剪", async () => {
+  await page.reload();
+  await openModule("截图悬浮");
+  await clickButton(page.locator(".screenshot-float-header .header-actions"), "刷新源");
+  await page.waitForSelector(".source-item", { timeout: 30000 });
+  await page.locator(".source-item").first().click();
+  await clickButton(page.locator(".screenshot-float-header .header-actions"), "截取整屏");
+  await page.waitForSelector(".crop-overlay", { timeout: 30000 });
+  await clickButton(page.locator(".crop-overlay"), "取消");
+  assert.equal(await page.locator(".crop-overlay").count(), 0);
+  assert.equal(await page.locator(".screenshot-card").count(), 0);
+});
+
+test("截图悬浮：权限拒绝提示", async () => {
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("check-screen-permission");
+    ipcMain.handle("check-screen-permission", async () => "denied");
+  });
+  await page.reload();
+  await openModule("截图悬浮");
+  await page.waitForSelector(".permission-warning");
+  await waitForText(".permission-warning", "denied");
+
+  await app.evaluate(({ ipcMain, systemPreferences }) => {
+    ipcMain.removeHandler("check-screen-permission");
+    ipcMain.handle("check-screen-permission", async () =>
+      process.platform === "darwin" ? systemPreferences.getMediaAccessStatus("screen") : "granted",
+    );
+  });
+});
+
+test("截图悬浮：屏幕源获取失败", async () => {
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("get-desktop-sources");
+    ipcMain.handle("get-desktop-sources", async () => {
+      throw new Error("mock failure");
+    });
+  });
+  await page.reload();
+  await openModule("截图悬浮");
+  await clickButton(page.locator(".screenshot-float-header .header-actions"), "刷新源");
+  await page.waitForSelector(".error-box", { timeout: 30000 });
+  await waitForText(".error-box", "获取屏幕源失败");
+});
+
+test("屏幕取色：不支持提示、历史回选与持久化", async () => {
+  await openModule("屏幕取色");
+  await page.evaluate(() => {
+    window.EyeDropper = undefined;
+  });
+  await page.locator(".pick-btn-overlay").click();
+  await waitForText(".error-message", "不支持原生取色器");
+
+  await page.evaluate(() => {
+    window.__nextColor = "#3366ff";
+    window.EyeDropper = class {
+      open() {
+        return Promise.resolve({ sRGBHex: window.__nextColor });
+      }
+    };
+  });
+  await page.locator(".pick-btn-overlay").click();
+  await page.waitForFunction(
+    () => document.querySelector(".color-value-large")?.textContent === "#3366FF",
+  );
+  await page.evaluate(() => {
+    window.__nextColor = "#ff6600";
+  });
+  await page.locator(".pick-btn-overlay").click();
+  await page.waitForFunction(
+    () => document.querySelector(".color-value-large")?.textContent === "#FF6600",
+  );
+  assert.equal(await page.locator(".history-item").count(), 2);
+
+  await page.locator(".history-item").nth(1).click();
+  await page.waitForFunction(
+    () => document.querySelector(".color-value-large")?.textContent === "#3366FF",
+  );
+
+  await page.reload();
+  await openModule("屏幕取色");
+  assert.equal(await page.locator(".history-item").count(), 2);
+  await clickButton(page.locator(".history-panel"), "清空");
+  await page.waitForSelector(".empty-history");
+});
+
+test("侧边栏：损坏的本地顺序回退默认", async () => {
+  await page.evaluate(() => localStorage.setItem("bennett-module-order", "{bad"));
+  await page.reload();
+  await page.waitForSelector(".nav-item");
+  assert.equal(await page.locator(".nav-item").count(), 11);
+  assert.equal(await page.locator(".nav-item .nav-label").first().textContent(), "JSON 格式化");
 });
