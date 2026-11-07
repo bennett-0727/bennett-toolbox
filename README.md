@@ -85,6 +85,7 @@
 - 插件安装/加载/停用/更新/安全拒绝/组件下载 e2e：3/3 通过
 - Electron 打包版冒烟 e2e：7/7 通过
 - `npm run build:electron` 成功
+- 安装包：macOS arm64 dmg 从 231MB 降至 122MB，x64 从 238MB 降至 126MB（1.3.0，MarkItDown 改为按需组件）
 
 ## 快速开始
 
