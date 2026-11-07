@@ -60,6 +60,12 @@ if (PLATFORM === "mac" && ARCH === "arm64") {
     "markitdown",
     "--collect-all",
     "magika",
+    "--collect-all",
+    "pdfminer",
+    "--hidden-import",
+    "pdfminer.high_level",
+    "--hidden-import",
+    "pdfminer.layout",
     path.join(ROOT, "scripts/markitdown_entry.py"),
   ]);
   fs.copyFileSync(path.join(buildDir, "dist", BINARY), DEST);

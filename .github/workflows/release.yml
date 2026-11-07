@@ -118,6 +118,7 @@ jobs:
     runs-on: macos-15-intel
     env:
       E2E_SKIP_SCREEN: "1"
+      E2E_DISABLE_GPU: "1"
       REAL_MARKITDOWN_BIN: ${{ github.workspace }}/vendor/markitdown/markitdown
       ELECTRON_APP_PATH: ${{ github.workspace }}/release/mac/Bennett Toolbox.app/Contents/MacOS/Bennett Toolbox
     steps:
@@ -164,6 +165,7 @@ jobs:
     runs-on: windows-latest
     env:
       E2E_SKIP_SCREEN: "1"
+      E2E_DISABLE_GPU: "1"
       REAL_MARKITDOWN_BIN: ${{ github.workspace }}/vendor/markitdown/markitdown.exe
       ELECTRON_APP_PATH: ${{ github.workspace }}/release/win-unpacked/Bennett Toolbox.exe
     steps:

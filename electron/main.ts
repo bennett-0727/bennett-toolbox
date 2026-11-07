@@ -5,6 +5,11 @@ import * as path from "path";
 import heicConvert from "heic-convert";
 import { translate } from "../src/i18n/messages";
 
+if (process.env.E2E_DISABLE_GPU === "1") {
+  electron.app.disableHardwareAcceleration();
+  electron.app.commandLine.appendSwitch("disable-gpu");
+}
+
 let language: "zh-CN" | "en-US" = "zh-CN";
 const tr = (text: string) => translate(language, text);
 
