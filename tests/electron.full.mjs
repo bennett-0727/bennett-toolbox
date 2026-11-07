@@ -78,6 +78,11 @@ async function setLanguage(label, lang) {
   await openSettings();
   await page.locator(".language-option", { hasText: label }).click();
   await page.waitForFunction((value) => document.documentElement.lang === value, lang);
+  const settingsText = lang === "en-US" ? "Settings" : "设置";
+  await page.waitForFunction(
+    (text) => document.querySelector(".settings-button span")?.textContent === text,
+    settingsText,
+  );
   await closeSettings();
 }
 
@@ -226,7 +231,10 @@ beforeEach(async () => {
       if (win !== mainWindow) win.destroy();
     }
     mainWindow?.setContentSize(1200, 760);
+    globalThis.__downloadWaiters = [];
   });
+  fs.rmSync(DOWNLOAD_DIR, { recursive: true, force: true });
+  fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
   await page.evaluate(() => localStorage.clear()).catch(() => {});
   await page.reload();
   await page.waitForSelector(".nav-item");

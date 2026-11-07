@@ -146,6 +146,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/prepare-markitdown.mjs
 
+      - name: Diagnose MarkItDown PDF
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          OUT=$(./vendor/markitdown/markitdown tests/fixtures/documents/multi.pdf 2>/tmp/md.err)
+          CODE=$?
+          echo "exit=$CODE"
+          printf '%s\n' "$OUT" | head -5
+          echo "stderr:"
+          head -20 /tmp/md.err
+
       - name: Build renderer
         run: npm run build
 
