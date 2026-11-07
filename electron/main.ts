@@ -7,6 +7,7 @@ import { translate } from "../src/i18n/messages";
 import { registerPluginIpc } from "./plugins/ipc";
 import { cleanupPluginStaging } from "./plugins/state";
 import { compareVersions } from "./plugins/version";
+import { markitdownComponentPath, registerComponentIpc } from "./components";
 
 if (process.env.E2E_DISABLE_GPU === "1") {
   electron.app.disableHardwareAcceleration();
@@ -103,6 +104,14 @@ const findMarkitdownCommands = Q => {
         label: tr("内置 MarkItDown")
       });
     }
+  }
+  const component = markitdownComponentPath();
+  if (component) {
+    D.unshift({
+      command: component,
+      argsPrefix: [],
+      label: tr("文档转换组件")
+    });
   }
   return D.filter((o, s, N) => N.findIndex(a => a.command === o.command && a.argsPrefix.join(" ") === o.argsPrefix.join(" ")) === s);
 };
@@ -832,6 +841,7 @@ electron.ipcMain.on("capture-selection-cancel", () => {
   }
 });
 registerPluginIpc();
+registerComponentIpc();
 
 electron.app.whenReady().then(() => {
   cleanupPluginStaging();

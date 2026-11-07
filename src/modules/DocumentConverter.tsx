@@ -1,5 +1,11 @@
 import * as React from "react";
 import { copyText, getFilePath } from "../shared/electron";
+import {
+  downloadMarkitdown,
+  getMarkitdownStatus,
+  onMarkitdownProgress,
+  type MarkitdownStatus,
+} from "../plugins/client";
 
 const AP = new Set(["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "html", "htm", "txt", "csv", "json", "xml", "zip", "epub", "jpg", "jpeg", "png", "gif", "webp", "wav", "mp3"]);
 const EP = r => {
@@ -28,6 +34,37 @@ function DocumentConverter() {
   const [c, u] = React.useState(false);
   const [h, d] = React.useState(null);
   const [f, p] = React.useState(null);
+  const [component, setComponent] = React.useState<MarkitdownStatus | null>(null);
+  const [componentProgress, setComponentProgress] = React.useState<number | null>(null);
+  const [componentBusy, setComponentBusy] = React.useState(false);
+  React.useEffect(() => {
+    if (!isElectron) return;
+    let live = true;
+    getMarkitdownStatus()
+      .then((status) => {
+        if (live) setComponent(status);
+      })
+      .catch(() => {});
+    const remove = onMarkitdownProgress((percent) => {
+      if (live) setComponentProgress(percent >= 100 ? null : percent);
+    });
+    return () => {
+      live = false;
+      remove();
+    };
+  }, []);
+  const downloadComponent = async () => {
+    setComponentBusy(true);
+    setComponentProgress(0);
+    try {
+      setComponent(await downloadMarkitdown());
+    } catch (error) {
+      i(error instanceof Error ? error.message : "下载组件失败");
+    } finally {
+      setComponentBusy(false);
+      setComponentProgress(null);
+    }
+  };
   const v = React.useMemo(() => r ? kP(r.name) : "converted.md", [r]);
   const m = React.useCallback(() => {
     n("");
@@ -175,7 +212,7 @@ function DocumentConverter() {
     m();
   }, [m]);
   if (isElectron) {
-    return <div className="document-converter"><div className="document-converter-header"><h1 className="module-title">文档转 Markdown</h1><div className="header-actions"><button className="btn btn-secondary" onClick={I} disabled={!r && !e}><span>🗑️</span>清空</button><button className="btn btn-secondary" onClick={A} disabled={!e}><span>📋</span>{c ? "已复制" : "复制"}</button><button className="btn btn-primary" onClick={E} disabled={!e}><span>💾</span>保存 .md</button></div></div><div className="document-converter-body"><section className={`document-drop-zone ${r ? "has-file" : ""}`} onDrop={y} onDragOver={N => N.preventDefault()} onClick={g}><div className="document-drop-icon">MD</div><div className="document-drop-copy"><div className="document-drop-title">{r ? r.name : "选择或拖入文件"}</div><div className="document-drop-hint">PDF、Office、HTML、图片、CSV、JSON、XML、ZIP 等格式会转换为 Markdown</div></div><button className="btn btn-secondary" type="button" onClick={N => {
+    return <div className="document-converter"><div className="document-converter-header"><h1 className="module-title">文档转 Markdown</h1><div className="header-actions"><button className="btn btn-secondary" onClick={I} disabled={!r && !e}><span>🗑️</span>清空</button><button className="btn btn-secondary" onClick={A} disabled={!e}><span>📋</span>{c ? "已复制" : "复制"}</button><button className="btn btn-primary" onClick={E} disabled={!e}><span>💾</span>保存 .md</button></div></div><div className="document-converter-body">{component && !component.available && <div className="permission-warning"><span className="warning-icon">⚠️</span><span>文档转换组件未安装，转换前请先下载。</span><button className="btn btn-secondary btn-sm" onClick={downloadComponent} disabled={componentBusy}>{componentBusy ? `下载中 ${componentProgress ?? 0}%` : "下载组件"}</button></div>}<section className={`document-drop-zone ${r ? "has-file" : ""}`} onDrop={y} onDragOver={N => N.preventDefault()} onClick={g}><div className="document-drop-icon">MD</div><div className="document-drop-copy"><div className="document-drop-title">{r ? r.name : "选择或拖入文件"}</div><div className="document-drop-hint">PDF、Office、HTML、图片、CSV、JSON、XML、ZIP 等格式会转换为 Markdown</div></div><button className="btn btn-secondary" type="button" onClick={N => {
             N.stopPropagation();
             g();
           }}>选择文件</button></section>{r && <section className="document-summary"><div className="summary-item"><span className="summary-label">格式</span><span className="summary-value">{r.extension}</span></div><div className="summary-item"><span className="summary-label">大小</span><span className="summary-value">{formatBytes(r.size)}</span></div><div className="summary-item path-item"><span className="summary-label">路径</span><span className="summary-value">{r.path}</span></div><button className="btn btn-primary" onClick={x} disabled={a}>{a ? "转换中..." : "转换为 Markdown"}</button></section>}{f && <section className={`conversion-progress ${f.status}`}><div className="progress-copy"><span className="progress-label">{f.label}</span><span className="progress-value">{f.value}%</span></div><div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={f.value} aria-label="文档转换进度"><div className="progress-fill" style={{

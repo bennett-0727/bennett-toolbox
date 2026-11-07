@@ -98,6 +98,40 @@ export function onPluginsChanged(callback: (snapshot: PluginSnapshot) => void): 
   return () => ipc.removeListener("plugins:changed", listener);
 }
 
+export interface MarkitdownStatus {
+  installed: boolean;
+  available: boolean;
+  version: string;
+  path: string | null;
+  assetName: string;
+  platform: string;
+  arch: string;
+}
+
+export async function getMarkitdownStatus(): Promise<MarkitdownStatus> {
+  const ipc = ipcRenderer();
+  if (!ipc) {
+    return { installed: false, available: false, version: "", path: null, assetName: "", platform: "", arch: "" };
+  }
+  const result = await ipc.invoke("components:markitdown-status");
+  if (!result?.ok || !result.status) throw new Error(result?.error || "读取组件状态失败");
+  return result.status;
+}
+
+export async function downloadMarkitdown(): Promise<MarkitdownStatus> {
+  const result = await invoke("components:markitdown-download");
+  if (!result.ok) throw new Error(result.error || "下载组件失败");
+  return (result as unknown as { status: MarkitdownStatus }).status;
+}
+
+export function onMarkitdownProgress(callback: (percent: number) => void): () => void {
+  const ipc = ipcRenderer();
+  if (!ipc) return () => {};
+  const listener = (_event: unknown, payload: { percent: number }) => callback(payload.percent);
+  ipc.on("components:markitdown-progress", listener);
+  return () => ipc.removeListener("components:markitdown-progress", listener);
+}
+
 export interface PluginInstallProgress {
   id: string;
   phase: "download" | "install" | "done";

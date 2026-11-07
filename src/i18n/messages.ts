@@ -65,6 +65,7 @@ const patterns: Array<[RegExp, string]> = [
   [/^\{(\d+) 项\}$/, "{$1 items}"],
   [/^正在打包图片$/, "Packing images"],
   [/^安装中 (\d+)%$/, "Installing $1%"],
+  [/^下载中 (\d+)%$/, "Downloading $1%"],
   [/^更新于 (.+)$/, "Updated $1"],
   [/^更新 v(.+)$/, "Update v$1"],
   [/^转换超时，请确认文件大小或 MarkItDown 安装状态$/, "Conversion timed out. Check the file size or MarkItDown installation."],

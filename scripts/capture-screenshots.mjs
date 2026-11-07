@@ -205,6 +205,14 @@ await page.locator(".theme-option").nth(1).click();
 await page.waitForFunction(() => document.documentElement.dataset.theme === "glass-light");
 await page.waitForTimeout(350);
 await shot("14-settings.png");
+await page.evaluate(() => {
+  for (const selector of [".main-content", ".settings-page", ".settings-page-body"]) {
+    const element = document.querySelector(selector);
+    if (element) element.scrollTop = element.scrollHeight;
+  }
+});
+await page.waitForTimeout(350);
+await shot("15-plugins.png");
 await page.locator(".settings-back").click();
 await page.waitForSelector(".settings-page", { state: "detached" });
 await shot("13-overview-light.png");

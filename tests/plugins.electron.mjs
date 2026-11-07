@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
@@ -13,7 +14,8 @@ let app;
 let page;
 let tempDir;
 let registryDir;
-let zipName;
+let componentServer;
+let componentBaseUrl;
 
 function pluginBundle(version, labelZh, labelEn) {
   return `
@@ -80,6 +82,29 @@ before(async () => {
   const v1 = await makeZip("1.0.0", "示例插件", "Fixture plugin");
   await writeRegistry([{ version: "1.0.0", buffer: v1 }]);
 
+  const componentDir = path.join(tempDir, "component");
+  fs.mkdirSync(componentDir, { recursive: true });
+  const asset =
+    process.platform === "win32"
+      ? `markitdown-win32-${process.arch}.exe`
+      : `markitdown-${process.platform}-${process.arch}`;
+  const binary = process.platform === "win32" ? "fake" : "#!/bin/sh\necho hello component\n";
+  fs.writeFileSync(path.join(componentDir, asset), binary);
+  const hash = crypto.createHash("sha256").update(binary).digest("hex");
+  fs.writeFileSync(path.join(componentDir, `${asset}.sha256`), `${hash}  ${asset}\n`);
+  componentServer = http.createServer((request, response) => {
+    const name = path.basename(request.url || "");
+    const file = path.join(componentDir, name);
+    if (!fs.existsSync(file)) {
+      response.writeHead(404).end();
+      return;
+    }
+    response.writeHead(200);
+    response.end(fs.readFileSync(file));
+  });
+  await new Promise((resolve) => componentServer.listen(0, "127.0.0.1", resolve));
+  componentBaseUrl = `http://127.0.0.1:${componentServer.address().port}`;
+
   app = await electron.launch({
     args: [
       ".",
@@ -88,7 +113,11 @@ before(async () => {
       "--disable-gpu-compositing",
     ],
     cwd: ROOT,
-    env: { ...process.env, BENNETT_PLUGIN_REGISTRY_DIR: registryDir },
+    env: {
+      ...process.env,
+      BENNETT_PLUGIN_REGISTRY_DIR: registryDir,
+      BENNETT_MARKITDOWN_COMPONENT_BASE_URL: componentBaseUrl,
+    },
   });
   page = await app.firstWindow();
   page.on("pageerror", (error) => console.error("PAGEERROR", error.message));
@@ -97,6 +126,7 @@ before(async () => {
 
 after(async () => {
   await app?.close();
+  await new Promise((resolve) => componentServer?.close(resolve));
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -104,8 +134,9 @@ test("插件安装、加载、停用、常驻、更新和卸载", async () => {
   await page.locator(".settings-button").click();
   await page.waitForSelector(".settings-card.plugins");
   await page.getByRole("button", { name: "刷新插件列表" }).click();
-  await page.waitForSelector(".plugin-row");
-  assert.match(await page.locator(".plugin-row").innerText(), /文本统计/);
+  const availableRow = page.locator(".plugin-row").filter({ hasText: "文本统计" });
+  await availableRow.waitFor();
+  assert.match(await availableRow.innerText(), /文本统计/);
 
   await page.getByRole("button", { name: "安装", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 12);
@@ -120,8 +151,10 @@ test("插件安装、加载、停用、常驻、更新和卸载", async () => {
 
   await page.locator(".settings-button").click();
   await page.waitForSelector(".settings-card.plugins");
-  assert.match(await page.locator(".plugin-row").innerText(), /已启用/);
-  await page.getByRole("button", { name: "停用", exact: true }).click();
+  const installedRow = page.locator(".plugin-row").filter({ hasText: "文本统计" });
+  await installedRow.waitFor();
+  assert.match(await installedRow.innerText(), /已启用/);
+  await installedRow.getByRole("button", { name: "停用", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 11);
   await page.getByRole("button", { name: "启用", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 12);
@@ -174,7 +207,11 @@ test("拒绝校验和不匹配与版本不兼容的插件", async () => {
   await page.locator(".settings-button").click();
   await page.waitForSelector(".settings-card.plugins");
   await page.getByRole("button", { name: "刷新插件列表" }).click();
-  await page.waitForFunction(() => document.querySelectorAll(".plugin-row").length >= 2);
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".plugin-row")].some((el) =>
+      el.textContent?.includes("坏校验和"),
+    ),
+  );
 
   const rows = page.locator(".plugin-row");
   await rows.filter({ hasText: "坏校验和" }).first().getByRole("button", { name: "安装" }).click();
@@ -186,4 +223,19 @@ test("拒绝校验和不匹配与版本不兼容的插件", async () => {
     [...document.querySelectorAll(".plugin-error")].some((el) => el.textContent?.includes("99.0.0")),
   );
   assert.equal(await page.locator(".nav-item").count(), 11);
+});
+
+test("下载 MarkItDown 组件并显示已安装", async () => {
+  await page.locator(".settings-button").click();
+  await page.waitForSelector(".settings-card.plugins");
+  const component = page.locator(".plugin-row").filter({ hasText: "文档转换组件" });
+  await component.waitFor();
+  assert.match(await component.innerText(), /未安装/);
+  await component.getByRole("button", { name: "下载组件" }).click();
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".plugin-row")].some(
+      (el) => el.textContent?.includes("文档转换组件") && el.textContent.includes("已安装"),
+    ),
+  );
+  assert.match(await component.innerText(), /已安装/);
 });

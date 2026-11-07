@@ -374,5 +374,14 @@
   "正在加载插件...": "Loading plugin...",
   "插件加载失败": "Plugin failed to load",
   "插件运行出错": "Plugin runtime error",
-  "重试": "Retry"
+  "重试": "Retry",
+  "组件": "Components",
+  "文档转换组件": "Document converter component",
+  "未安装": "Not installed",
+  "用于文档转 Markdown，按需下载，不随安装包分发。": "Used by Document to Markdown. Downloaded on demand, not bundled with the app.",
+  "下载组件": "Download component",
+  "重新下载": "Re-download",
+  "下载中": "Downloading",
+  "文档转换组件未安装，转换前请先下载。": "The document converter component is not installed. Download it before converting.",
+  "下载组件失败": "Failed to download component"
 }

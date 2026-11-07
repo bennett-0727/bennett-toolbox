@@ -1,5 +1,6 @@
 import * as electron from "electron";
 import type { PluginOperationResult, PluginSnapshot } from "../../src/plugins/types";
+import { broadcast, isTrustedSender } from "../ipc-utils";
 import {
   installPlugin,
   listPluginSnapshot,
@@ -18,20 +19,6 @@ function readPluginId(payload: unknown): string {
   const id = (payload as { id?: unknown })?.id;
   if (typeof id !== "string" || !isValidPluginId(id)) throw new Error("插件 id 无效");
   return id;
-}
-
-function isTrustedSender(event: electron.IpcMainInvokeEvent): boolean {
-  const url = event.senderFrame?.url || "";
-  return (
-    /^file:\/\/.*\/dist\/index\.html(?:[?#]|$)/.test(url) ||
-    /^http:\/\/127\.0\.0\.1:5173\//.test(url)
-  );
-}
-
-function broadcast(channel: string, payload: unknown): void {
-  for (const window of electron.BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) window.webContents.send(channel, payload);
-  }
 }
 
 function snapshotResult(snapshot: PluginSnapshot): PluginOperationResult {

@@ -3,6 +3,7 @@ import type { Language } from "../i18n";
 import { usePlugins } from "../plugins/PluginsContext";
 import type { InstalledPlugin, RegistryPlugin } from "../plugins/types";
 import { comparePluginVersions } from "../plugins/version";
+import MarkitdownComponentRow from "./MarkitdownComponentRow";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -185,6 +186,9 @@ function PluginManagerCard({ language }: { language: Language }) {
       ) : (
         available.map(renderAvailable)
       )}
+
+      <div className="plugin-group-title">组件</div>
+      <MarkitdownComponentRow />
     </div>
   );
 }

@@ -61,6 +61,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/prepare-markitdown.mjs
 
+      - name: Prepare component assets
+        env:
+          MATRIX_PLATFORM: ${{ matrix.platform }}
+          MATRIX_ARCH: ${{ matrix.arch }}
+        run: node scripts/prepare-component-assets.mjs
+
       - name: Sync version from tag
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
@@ -98,6 +104,7 @@ jobs:
             release/*.dmg
             release/*.zip
             release/*.exe
+            release/markitdown-*
           if-no-files-found: error
 
   test-web:

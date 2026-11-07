@@ -33,7 +33,7 @@
 | **PDF 转图片** | 按页导出 JPG/PNG，清晰度与质量可调，支持 ZIP 打包。<br><img src="docs/screenshots/07-pdf.png" width="560" /> |
 | **视频转 GIF** | 截取区间，设置帧率、尺寸与质量，生成并下载 GIF。<br><img src="docs/screenshots/08-video-gif.png" width="560" /> |
 | **文件搜索** | 按目录递归搜索文件名，支持深度、排序、打开与在文件夹中显示。<br><img src="docs/screenshots/09-file-search.png" width="560" /> |
-| **文档转 MD** | 调用 MarkItDown 转换 PDF、Office、HTML 等格式，可复制或保存 Markdown。<br><img src="docs/screenshots/10-document-converter.png" width="560" /> |
+| **文档转 MD** | 调用 MarkItDown 转换 PDF、Office、HTML 等格式；MarkItDown 作为按需下载组件，不随安装包分发。<br><img src="docs/screenshots/10-document-converter.png" width="560" /> |
 | **截图悬浮** | 选择屏幕源，支持整屏与框选截图、悬浮置顶、复制和下载。<br><img src="docs/screenshots/11-screenshot.png" width="560" /> |
 | **屏幕取色** | EyeDropper 取色，展示 HEX、RGB、HSL、CSS 格式与历史记录。<br><img src="docs/screenshots/12-color-picker.png" width="560" /> |
 | **设置页** | 集中管理深色、浅色与彩色玻璃皮肤、界面语言与版本更新，卡片式玻璃布局支持窄窗口。<br><img src="docs/screenshots/14-settings.png" width="560" /> |
@@ -57,6 +57,9 @@
 - 首个示例插件 `bennett.text-stats` 提供字符、单词、行数、字节与阅读时长统计
 - 插件仓库：https://github.com/bennett-0727/bennett-toolbox-plugins
 - 插件在受信渲染进程中运行，安装包使用 SHA-256 校验；仅从插件仓库的 GitHub Release 下载
+- MarkItDown 作为独立组件按需下载，安装包不再内置约 104MB 二进制；设置页插件卡片提供组件状态与下载入口
+
+![插件与组件管理](docs/screenshots/15-plugins.png)
 
 ## 版本更新
 
@@ -79,7 +82,7 @@
 - 浏览器 e2e：3/3 通过
 - Electron 打包版功能 e2e：54/54 通过（11 个模块 + 设置页 + 侧边栏 + 主进程 IPC）
 - 插件单元测试：6/6 通过
-- 插件安装/加载/停用/更新/安全拒绝 e2e：2/2 通过
+- 插件安装/加载/停用/更新/安全拒绝/组件下载 e2e：3/3 通过
 - Electron 打包版冒烟 e2e：7/7 通过
 - `npm run build:electron` 成功
 
@@ -93,7 +96,7 @@ npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
 npm run test:electron    # Electron 功能测试（54 项，需先构建；CI 跳过 7 项屏幕用例）
 npm run test:unit        # 插件规则单元测试（6 项）
-npm run test:plugins     # 插件安装/加载/安全 e2e（2 项，需先构建）
+npm run test:plugins     # 插件安装/加载/安全/组件下载 e2e（3 项，需先构建）
 npm run test:electron:smoke  # Electron 冒烟测试（7 项）
 ```
 

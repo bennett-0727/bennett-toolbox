@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-11-07
+
+### Added
+
+- MarkItDown 改为按需下载组件：按平台/架构从应用 Release 获取，校验 SHA-256 后安装到 userData
+- 设置页插件卡片的“组件”分组：状态、版本、下载/重新下载与进度
+- 文档转 Markdown 在组件缺失时提供下载提示
+- CI 构建并上传四平台 MarkItDown 组件资产与校验文件
+
+### Changed
+
+- 安装包移除 `extraResources` 中的 MarkItDown，`.app` 体积从约 367MB 降至约 264MB
+- 组件下载地址固定到 `v<appVersion>` 标签，开发/测试继续支持 `MARKITDOWN_BIN` 与 vendor 回退
+- 应用版本提升到 1.3.0
+
 ## [1.2.0] - 2026-11-07
 
 ### Added
