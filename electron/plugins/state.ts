@@ -71,13 +71,23 @@ export function writePluginState(state: PluginState): Promise<void> {
   return next;
 }
 
-export async function updatePluginState(
+let stateUpdateQueue: Promise<unknown> = Promise.resolve();
+
+export function updatePluginState(
   mutate: (state: PluginState) => void,
 ): Promise<PluginState> {
-  const state = await readPluginState();
-  mutate(state);
-  await writePluginState(state);
-  return state;
+  const run = async () => {
+    const state = await readPluginState();
+    mutate(state);
+    await writePluginState(state);
+    return state;
+  };
+  const next = stateUpdateQueue.then(run, run);
+  stateUpdateQueue = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
 }
 
 export function pluginVersionDir(id: string, version: string): string {

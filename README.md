@@ -41,7 +41,7 @@
 
 ### 设置、语言与屏幕适配
 
-- 默认进入工作台，不自动加载插件；打开工具后占满主画布，侧栏与顶栏常驻
+- 默认进入工作台，不自动加载插件；打开工具后占满主画布，侧栏与顶栏常驻；侧栏可收起为 64px 图标栏
 - 工作台内直接切换 中文 / English 与五套玻璃主题，侧栏不再单设设置入口
 - 内置深色玻璃、浅色玻璃、极光紫、深海青、落日橙；外观分区提供对应配色预览，选择保存到本地并在重启后恢复
 - 设置页同时显示当前版本、检查更新与“前往下载”入口
@@ -83,9 +83,9 @@
 - `npx tsc --noEmit` 0 错误
 - `npx vite build` 成功
 - 浏览器 e2e：3/3 通过
-- Electron 打包版功能 e2e：54/54 通过（安装 11 个官方插件后覆盖全部模块 + 设置页 + 侧边栏 + 主进程 IPC）
+- Electron 打包版功能 e2e：55/55 通过（安装 11 个官方插件后覆盖全部模块 + 设置页 + 侧边栏展开收起 + 主进程 IPC）
 - 插件单元测试：6/6 通过
-- 插件安装/加载/停用/更新/安全拒绝/组件下载 e2e：3/3 通过
+- 插件安装/加载/停用/更新/安全拒绝/组件下载/并发状态/单实例 e2e：5/5 通过
 - 浏览器壳层 e2e：3/3 通过（工作台、内嵌设置、语言/主题）
 - Electron 冒烟：空壳与安装 11 个插件两种模式通过
 - `npm run build:electron` 成功
@@ -101,9 +101,9 @@ npm run setup:markitdown  # 可选：准备文档转换器（文档转 MD 需要
 npm run dev              # 前端开发服务器 http://127.0.0.1:5173
 npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
-npm run test:electron    # Electron 功能测试（54 项；需先构建并准备插件仓库）
+npm run test:electron    # Electron 功能测试（55 项；需先构建并准备插件仓库）
 npm run test:unit        # 插件规则单元测试（6 项）
-npm run test:plugins     # 插件安装/加载/安全/组件下载 e2e（3 项，需先构建）
+npm run test:plugins     # 插件安装/加载/安全/组件下载/并发状态/单实例 e2e（5 项，需先构建）
 npm run test:electron:smoke  # Electron 冒烟；设置 BENNETT_PLUGIN_REGISTRY_DIR 时安装 11 个插件
 ```
 

@@ -11,6 +11,19 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function formatRegistryTime(value: string, language: Language): string | null {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(language, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+}
+
 function PluginManagerCard({
   language,
   onOpenPlugin,
@@ -35,6 +48,9 @@ function PluginManagerCard({
   } = usePlugins();
   const [localError, setLocalError] = React.useState<string | null>(null);
   const autoRefreshed = React.useRef(false);
+  const registryTime = snapshot.registryUpdatedAt
+    ? formatRegistryTime(snapshot.registryUpdatedAt, language)
+    : null;
 
   React.useEffect(() => {
     if (autoRefreshed.current || loading || busy) return;
@@ -172,7 +188,7 @@ function PluginManagerCard({
     <div className="plugin-manager">
       <div className="plugin-manager-toolbar">
         <span className="plugin-registry-time">
-          {snapshot.registryUpdatedAt ? `更新于 ${snapshot.registryUpdatedAt}` : "尚未刷新"}
+          {registryTime ? `更新于 ${registryTime}` : "尚未刷新"}
         </span>
         {recommended.length > 0 && (
           <button

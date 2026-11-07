@@ -13,6 +13,11 @@ if (process.env.BENNETT_USER_DATA_DIR) {
   electron.app.setPath("userData", process.env.BENNETT_USER_DATA_DIR);
 }
 
+const hasSingleInstanceLock = electron.app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  electron.app.quit();
+}
+
 if (process.env.E2E_DISABLE_GPU === "1") {
   electron.app.disableHardwareAcceleration();
   electron.app.commandLine.appendSwitch("disable-gpu");
@@ -125,6 +130,7 @@ const sanitizeMarkitdownError = Q => Q.split(/\r?\n/).map(o => o.trimEnd()).filt
 }).map(o => o.replace(/^markitdown\._exceptions\.FileConversionException:\s*/, "")).join(`
 `) || tr("MarkItDown 转换失败");
 const floatingWindows = new Map();
+let mainWindow = null;
 let selectionWindow = null;
 let isQuitting = false;
 const closeSecondaryWindows = () => {
@@ -315,8 +321,12 @@ function createMainWindow() {
     backgroundColor: "#0f0f23",
     show: false
   });
+  mainWindow = Q;
   Q.once("ready-to-show", () => {
     Q.show();
+  });
+  Q.on("closed", () => {
+    if (mainWindow === Q) mainWindow = null;
   });
   Q.on("close", () => {
     if (process.platform !== "darwin") {
@@ -855,15 +865,24 @@ electron.ipcMain.on("capture-selection-cancel", () => {
 registerPluginIpc();
 registerComponentIpc();
 
-electron.app.whenReady().then(() => {
-  cleanupPluginStaging();
-  createMainWindow();
-  electron.app.on("activate", () => {
-    if (electron.BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
-    }
+if (hasSingleInstanceLock) {
+  electron.app.on("second-instance", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
   });
-});
+
+  electron.app.whenReady().then(() => {
+    cleanupPluginStaging();
+    createMainWindow();
+    electron.app.on("activate", () => {
+      if (electron.BrowserWindow.getAllWindows().length === 0) {
+        createMainWindow();
+      }
+    });
+  });
+}
 electron.app.on("before-quit", () => {
   isQuitting = true;
   closeSecondaryWindows();

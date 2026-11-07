@@ -13,10 +13,31 @@ interface SidebarProps {
   onCheckUpdates: () => void;
 }
 
+const SIDEBAR_COLLAPSED_KEY = "bennett-sidebar-collapsed";
+
+function loadSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
 function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, onOpenWorkbench, updateStatus, onCheckUpdates }: SidebarProps) {
   const [draggingIndex, setDraggingIndex] = React.useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
+  const [collapsed, setCollapsed] = React.useState(loadSidebarCollapsed);
   const draggedItemRef = React.useRef<HTMLElement | null>(null);
+
+  const toggleCollapsed = () => {
+    setCollapsed((current) => {
+      const next = !current;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const handleDragStart = (event: React.DragEvent<HTMLLIElement>, index: number) => {
     setDraggingIndex(index);
@@ -57,23 +78,44 @@ function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, onOpe
   };
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
       <div className="sidebar-header">
         <div className="logo">
           <span className="logo-icon">⚡</span>
           <span className="logo-text">工具箱</span>
         </div>
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={toggleCollapsed}
+          title={collapsed ? "展开侧栏" : "收起侧栏"}
+          aria-label={collapsed ? "展开侧栏" : "收起侧栏"}
+          aria-expanded={!collapsed}
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path
+              d="M10 3 5 8l5 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
       </div>
       <nav className="sidebar-nav">
         <button
           type="button"
           className={`workbench-nav ${activeModule === "" ? "active" : ""}`}
           onClick={onOpenWorkbench}
+          title="工作台"
+          aria-label="工作台"
         >
           <span className="workbench-nav-icon">
             <WorkbenchIcon />
           </span>
-          <span>工作台</span>
+          <span className="workbench-nav-label">工作台</span>
         </button>
         <div className="nav-section">
           <span className="nav-section-title">
@@ -99,6 +141,8 @@ function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, onOpe
                 <button
                   className={`nav-item ${activeModule === module.id ? "active" : ""}`}
                   onClick={() => onModuleSelect(module.id)}
+                  title={module.name}
+                  aria-label={module.name}
                 >
                   <span className="drag-handle">⋮⋮</span>
                   <span className="nav-icon">{module.icon}</span>

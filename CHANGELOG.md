@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+
+- 左侧栏支持展开/收起，收起后为 64px 图标栏并保留工具悬浮提示，状态持久化到 localStorage
+
+### Fixed
+
+- 插件状态读改写未串行化，并发安装或多实例同时写入时已安装插件会被覆盖丢失
+- 应用未启用单实例锁，重复启动会创建多个状态写者
+- 工作台 registry 更新时间改为按当前语言格式化的本地时间，不再显示原始 ISO 字符串
+
 ## [2.0.0] - 2026-11-07
 
 ### Added

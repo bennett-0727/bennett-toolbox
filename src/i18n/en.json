@@ -354,6 +354,8 @@
   "刷新插件列表": "Refresh plugins",
   "安装全部推荐工具": "Install all recommended",
   "工作台": "Workbench",
+  "展开侧栏": "Expand sidebar",
+  "收起侧栏": "Collapse sidebar",
   "工作区": "Workspace",
   "外观、语言与版本更新": "Appearance, language and updates",
   "插件按需加载": "Plugins load on demand",

@@ -139,6 +139,10 @@ test("插件安装、加载、停用、常驻、更新和卸载", async () => {
   await availableRow.waitFor();
   assert.match(await availableRow.innerText(), /文本统计/);
 
+  const registryTime = await page.locator(".plugin-registry-time").innerText();
+  assert.match(registryTime, /^更新于 .+\d{2}:\d{2}$/);
+  assert.doesNotMatch(registryTime, /T\d{2}:\d{2}:\d{2}/);
+
   await page.getByRole("button", { name: "安装", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 1);
   assert.ok((await page.locator(".nav-label").allTextContents()).includes("文本统计"));

@@ -14,7 +14,7 @@
     "test:e2e": "e2e run",
     "build:all": "npm run build && npm run build:electron",
     "test:unit": "node --test tests/unit/plugins/*.test.mjs",
-    "test:plugins": "node tests/plugins.electron.mjs",
+    "test:plugins": "node tests/plugins.electron.mjs && node tests/plugins.race.electron.mjs",
     "test:electron": "node tests/electron.full.mjs",
     "test:electron:smoke": "node tests/electron.smoke.mjs",
     "package:mac": "electron-builder --mac --publish never",

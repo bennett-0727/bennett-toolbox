@@ -2139,3 +2139,47 @@ test("主题切换：五套玻璃主题、彩色皮肤与持久化", async () =>
   assert.ok(red > 240 && green > 240 && blue > 240, `深色主题活动按钮颜色异常: ${darkActiveColor}`);
   await closeSettings();
 });
+
+test("侧栏展开收起与状态持久化", async () => {
+  await page.waitForSelector(".sidebar-toggle");
+  const sidebar = page.locator(".sidebar");
+  assert.equal(await sidebar.evaluate((el) => el.classList.contains("collapsed")), false);
+  const expandedWidth = await sidebar.evaluate((el) => el.getBoundingClientRect().width);
+  assert.ok(expandedWidth > 150, `展开宽度异常: ${expandedWidth}`);
+
+  await page.locator(".sidebar-toggle").click();
+  await page.waitForFunction(() =>
+    document.querySelector(".sidebar")?.classList.contains("collapsed"),
+  );
+  await page.waitForTimeout(300);
+  const collapsedWidth = await sidebar.evaluate((el) => el.getBoundingClientRect().width);
+  assert.ok(collapsedWidth < 80, `收起宽度异常: ${collapsedWidth}`);
+  assert.equal(await page.locator(".nav-label").first().isVisible(), false);
+  assert.equal(await page.locator(".logo-text").isVisible(), false);
+  assert.equal(await page.locator(".sidebar-toggle").getAttribute("aria-expanded"), "false");
+  const toolTitle = await page.locator(".nav-item").first().getAttribute("title");
+  assert.ok(toolTitle && toolTitle.length > 0);
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem("bennett-sidebar-collapsed")),
+    "true",
+  );
+
+  await page.reload();
+  await page.waitForSelector(".sidebar-toggle");
+  await page.waitForSelector(".nav-item", { state: "attached" });
+  await page.waitForFunction(() =>
+    document.querySelector(".sidebar")?.classList.contains("collapsed"),
+  );
+  assert.equal(await page.locator(".nav-label").first().isVisible(), false);
+
+  await page.locator(".sidebar-toggle").click();
+  await page.waitForFunction(() =>
+    !document.querySelector(".sidebar")?.classList.contains("collapsed"),
+  );
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator(".nav-label").first().isVisible(), true);
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem("bennett-sidebar-collapsed")),
+    "false",
+  );
+});
