@@ -156,7 +156,7 @@ jobs:
           echo "exit=$CODE"
           printf '%s\n' "$OUT" | head -5
           echo "stderr:"
-          head -20 /tmp/md.err
+          head -100 /tmp/md.err
 
       - name: Build renderer
         run: npm run build

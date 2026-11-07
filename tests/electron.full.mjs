@@ -80,6 +80,17 @@ async function setLanguage(label, lang) {
   await page.waitForFunction((value) => document.documentElement.lang === value, lang);
   await page.reload();
   await page.waitForSelector(".nav-item");
+  await page.waitForTimeout(500);
+  console.log(
+    "language state:",
+    lang,
+    await page.evaluate(() => ({
+      lang: document.documentElement.lang,
+      stored: localStorage.getItem("bennett-language"),
+      settings: document.querySelector(".settings-button span")?.textContent ?? null,
+      nav: [...document.querySelectorAll(".nav-label")].slice(0, 3).map((el) => el.textContent),
+    })),
+  );
   const settingsText = lang === "en-US" ? "Settings" : "设置";
   await page.waitForFunction(
     (text) => document.querySelector(".settings-button span")?.textContent === text,

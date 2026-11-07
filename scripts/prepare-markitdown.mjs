@@ -66,10 +66,18 @@ if (PLATFORM === "mac" && ARCH === "arm64") {
     "pdfplumber",
     "--collect-all",
     "pypdfium2",
+    "--collect-submodules",
+    "pdfminer",
+    "--collect-submodules",
+    "pdfplumber",
     "--hidden-import",
     "pdfminer.high_level",
     "--hidden-import",
     "pdfminer.layout",
+    "--hidden-import",
+    "pdfminer.casting",
+    "--hidden-import",
+    "pdfminer.pdfdevice",
     path.join(ROOT, "scripts/markitdown_entry.py"),
   ]);
   fs.copyFileSync(path.join(buildDir, "dist", BINARY), DEST);
