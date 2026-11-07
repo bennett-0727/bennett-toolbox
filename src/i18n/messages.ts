@@ -67,6 +67,10 @@ const patterns: Array<[RegExp, string]> = [
   [/^转换超时，请确认文件大小或 MarkItDown 安装状态$/, "Conversion timed out. Check the file size or MarkItDown installation."],
 ];
 
+if (typeof window !== "undefined") {
+  (window as any).__bennettLanguage = () => currentLanguage;
+}
+
 export function translate(language: Language, text: string): string {
   if (language !== "en-US") return text;
   const match = /^(\s*)([\s\S]*?)(\s*)$/.exec(text);
