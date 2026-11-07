@@ -17,7 +17,11 @@ function findPluginRepo() {
     path.resolve(ROOT, "../bennett-toolbox-plugins"),
     path.resolve(ROOT, "../../bennett-toolbox-plugins"),
   ].filter(Boolean);
-  return candidates.find((candidate) => fs.existsSync(path.join(candidate, "package.json")));
+  return candidates.find(
+    (candidate) =>
+      fs.existsSync(path.join(candidate, "package.json")) ||
+      fs.existsSync(path.join(candidate, "dist/registry.json")),
+  );
 }
 
 export function preparePluginRegistry() {
