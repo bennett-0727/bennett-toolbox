@@ -27,5 +27,7 @@
 
 - [x] 4.1 本地执行 macOS arm64 打包命令，确认 `release/` 下生成 dmg 与 zip，且应用可启动
 - [x] 4.2 执行 `npm run typecheck`、`npm run build`、`npm run test:e2e`，确认现有测试无回归
-- [ ] 4.3（需推送授权）在 GitHub 手动触发 workflow，确认 4 个矩阵任务全部成功且 artifacts 可下载
-- [ ] 4.4（需推送授权）推送下一个 `v*` tag，确认 Release 附带 macOS 与 Windows 全部产物
+- [x] 4.3（需推送授权）在 GitHub 手动触发 workflow，确认 4 个矩阵任务全部成功且 artifacts 可下载
+- [x] 4.4（需推送授权）推送下一个 `v*` tag，确认 Release 附带 macOS 与 Windows 全部产物
+
+验证记录：run 42378517890（workflow_dispatch）四个平台矩阵任务成功，artifacts 可下载；run 42379222069（v2.0.0 tag）发布成功，Release 含 macOS/Windows x64+arm64 的 dmg/zip/exe。
