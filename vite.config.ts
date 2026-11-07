@@ -6,17 +6,22 @@ import react from "@vitejs/plugin-react";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
+const srcDir = path.join(root, "src").replace(/\\/g, "/");
+const i18nDir = path.join(root, "src/i18n").replace(/\\/g, "/");
 
 function i18nJsxRuntime(): Plugin {
   return {
     name: "i18n-jsx-runtime",
     enforce: "pre",
     resolveId(source, importer) {
-      if (!importer || !importer.startsWith(path.join(root, "src"))) return null;
-      if (importer.includes(path.join(root, "src/i18n"))) return null;
-      if (source === "react/jsx-runtime") return path.join(root, "src/i18n/jsx-runtime.ts");
+      const importerId = importer?.replace(/\\/g, "/");
+      if (!importerId || !importerId.startsWith(srcDir)) return null;
+      if (importerId.includes(i18nDir)) return null;
+      if (source === "react/jsx-runtime") {
+        return path.join(root, "src/i18n/jsx-runtime.ts").replace(/\\/g, "/");
+      }
       if (source === "react/jsx-dev-runtime") {
-        return path.join(root, "src/i18n/jsx-dev-runtime.ts");
+        return path.join(root, "src/i18n/jsx-dev-runtime.ts").replace(/\\/g, "/");
       }
       return null;
     },
