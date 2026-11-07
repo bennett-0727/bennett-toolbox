@@ -78,12 +78,13 @@ async function setLanguage(label, lang) {
   await openSettings();
   await page.locator(".language-option", { hasText: label }).click();
   await page.waitForFunction((value) => document.documentElement.lang === value, lang);
+  await page.reload();
+  await page.waitForSelector(".nav-item");
   const settingsText = lang === "en-US" ? "Settings" : "设置";
   await page.waitForFunction(
     (text) => document.querySelector(".settings-button span")?.textContent === text,
     settingsText,
   );
-  await closeSettings();
 }
 
 async function setTheme(value) {

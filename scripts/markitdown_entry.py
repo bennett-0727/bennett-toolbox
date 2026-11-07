@@ -1,5 +1,14 @@
-from markitdown import MarkItDown
 import sys
+import traceback
+
+try:
+    import pdfminer
+    import pdfminer.high_level
+    import pdfplumber
+except Exception:
+    traceback.print_exc()
+
+from markitdown import MarkItDown
 
 if len(sys.argv) != 2:
     sys.stderr.write("usage: markitdown <file>\n")
