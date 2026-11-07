@@ -78,8 +78,6 @@ async function setLanguage(label, lang) {
   await openSettings();
   await page.locator(".language-option", { hasText: label }).click();
   await page.waitForFunction((value) => document.documentElement.lang === value, lang);
-  await page.reload();
-  await page.waitForSelector(".nav-item");
   await page.waitForTimeout(500);
   console.log(
     "language state:",
@@ -95,7 +93,9 @@ async function setLanguage(label, lang) {
   await page.waitForFunction(
     (text) => document.querySelector(".settings-button span")?.textContent === text,
     settingsText,
+    { timeout: 10000 },
   );
+  await closeSettings();
 }
 
 async function setTheme(value) {
