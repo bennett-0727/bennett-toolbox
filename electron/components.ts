@@ -129,6 +129,10 @@ export async function downloadMarkitdownComponent(): Promise<MarkitdownStatus> {
     JSON.stringify({ name, version, sha256: actual, installedAt: new Date().toISOString() }, null, 2),
     "utf8",
   );
+  if (process.env.BENNETT_SKIP_COMPONENT_WARMUP === "1") {
+    broadcast("components:markitdown-progress", { percent: 100 });
+    return getMarkitdownStatus();
+  }
   const warmFile = path.join(os.tmpdir(), `bennett-markitdown-warm-${process.pid}.txt`);
   await fs.promises.writeFile(warmFile, "warm up\n", "utf8");
   const internal = path.join(path.dirname(binary), "_internal");

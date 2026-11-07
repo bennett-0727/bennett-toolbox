@@ -117,6 +117,7 @@ before(async () => {
       ...process.env,
       BENNETT_PLUGIN_REGISTRY_DIR: registryDir,
       BENNETT_MARKITDOWN_COMPONENT_BASE_URL: componentBaseUrl,
+      BENNETT_SKIP_COMPONENT_WARMUP: "1",
       BENNETT_USER_DATA_DIR: userData,
     },
   });
