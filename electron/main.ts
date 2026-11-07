@@ -390,7 +390,26 @@ electron.ipcMain.handle("convert-heic-image", async (Q, D) => {
     };
   }
 });
-electron.ipcMain.handle("check-screen-permission", async () => process.platform === "darwin" ? electron.systemPreferences.getMediaAccessStatus("screen") : "granted");
+electron.ipcMain.handle("check-screen-permission", async () => {
+  if (process.platform !== "darwin") return "granted";
+  const status = electron.systemPreferences.getMediaAccessStatus("screen");
+  if (status === "granted") return status;
+  try {
+    const sources = await electron.desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: { width: 1, height: 1 },
+    });
+    if (sources.length > 0) return "granted";
+  } catch {}
+  return status;
+});
+electron.ipcMain.handle("open-screen-permission-settings", async () => {
+  if (process.platform === "darwin") {
+    await electron.shell.openExternal(
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+    );
+  }
+});
 electron.ipcMain.handle("get-desktop-sources", async () => {
   try {
     return (await electron.desktopCapturer.getSources({
@@ -411,6 +430,23 @@ electron.ipcMain.handle("get-desktop-sources", async () => {
   } catch (Q) {
     console.error("获取屏幕源失败:", Q);
     return [];
+  }
+});
+electron.ipcMain.handle("copy-image-to-clipboard", async (_event, dataUrl: unknown) => {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/png;base64,")) {
+    return false;
+  }
+  try {
+    const png = Buffer.from(dataUrl.slice("data:image/png;base64,".length), "base64");
+    await electron.clipboard.write([
+      new electron.ClipboardItem({
+        "image/png": new Blob([png], { type: "image/png" }),
+      }),
+    ]);
+    return true;
+  } catch (error) {
+    console.error("复制截图失败:", error);
+    return false;
   }
 });
 electron.ipcMain.handle("create-floating-window", async (Q, D) => {

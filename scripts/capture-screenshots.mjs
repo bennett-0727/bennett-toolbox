@@ -27,6 +27,33 @@ const app = await electron.launch({
 const page = await app.firstWindow();
 await page.waitForLoadState("domcontentloaded");
 
+async function setLanguage(label, value) {
+  await page.locator(".settings-button").click();
+  await page.waitForSelector(".settings-page");
+  await page.locator(".language-option", { hasText: label }).click();
+  await page.waitForFunction((next) => document.documentElement.lang === next, value);
+  await page.locator(".settings-back").click();
+  await page.waitForSelector(".settings-page", { state: "detached" });
+}
+
+async function setTheme(value) {
+  await page.locator(".settings-button").click();
+  await page.waitForSelector(".settings-page");
+  await page.locator(".theme-option").nth(value === "glass-light" ? 1 : 0).click();
+  await page.waitForFunction(
+    (next) => document.documentElement.dataset.theme === next,
+    value,
+  );
+  await page.waitForTimeout(300);
+  await page.locator(".settings-back").click();
+  await page.waitForSelector(".settings-page", { state: "detached" });
+}
+
+await page.waitForSelector(".settings-button");
+await setLanguage("中文", "zh-CN");
+await setTheme("glass-dark");
+await page.waitForTimeout(250);
+
 await app.evaluate(
   ({ ipcMain }, { searchDir, docPath, thumbPng, thumbJpg }) => {
     ipcMain.removeHandler("select-directory");
@@ -170,5 +197,17 @@ await page.waitForFunction(
   () => document.querySelector(".color-value-large")?.textContent === "#3366FF",
 );
 await shot("12-color-picker.png");
+
+await openModule("JSON 格式化");
+await page.locator(".settings-button").click();
+await page.waitForSelector(".settings-page");
+await page.locator(".theme-option").nth(1).click();
+await page.waitForFunction(() => document.documentElement.dataset.theme === "glass-light");
+await page.waitForTimeout(350);
+await shot("14-settings.png");
+await page.locator(".settings-back").click();
+await page.waitForSelector(".settings-page", { state: "detached" });
+await shot("13-overview-light.png");
+await setTheme("glass-dark");
 
 await app.close();

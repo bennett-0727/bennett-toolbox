@@ -64,6 +64,33 @@ async function clickButton(scope, text) {
   await scope.locator("button", { hasText: text }).first().click();
 }
 
+async function openSettings() {
+  await page.locator(".settings-button").click();
+  await page.waitForSelector(".settings-page");
+}
+
+async function closeSettings() {
+  await page.locator(".settings-back").click();
+  await page.waitForSelector(".settings-page", { state: "detached" });
+}
+
+async function setLanguage(label, lang) {
+  await openSettings();
+  await page.locator(".language-option", { hasText: label }).click();
+  await page.waitForFunction((value) => document.documentElement.lang === value, lang);
+  await closeSettings();
+}
+
+async function setTheme(value) {
+  await openSettings();
+  await page.locator(`.theme-option[data-theme-value="${value}"]`).click();
+  await page.waitForFunction(
+    (next) => document.documentElement.dataset.theme === next,
+    value,
+  );
+  await closeSettings();
+}
+
 async function setWindowSize(width, height) {
   const actual = await app.evaluate(({ BrowserWindow, screen }, size) => {
     const area = screen.getPrimaryDisplay().workAreaSize;
@@ -426,7 +453,7 @@ test("PDF 转图片：JPG 输出、页面预览、ZIP", async () => {
   await waitForText(".pdf-page-meta", "第 1 页");
 
   const zipFile = await downloadFrom(
-    page.locator(".pdf-result-actions button", { hasText: "下载全部 ZIP" }),
+    page.locator(".pdf-result-header-actions button", { hasText: "下载全部 ZIP" }),
   );
   assert.match(zipFile, /\.zip$/i);
 });
@@ -564,7 +591,13 @@ test("截图悬浮：整屏截图、裁剪、悬浮窗、复制、删除", { ski
   await closed;
 
   await card.locator('button[title="复制到剪贴板"]').click();
-  assert.equal(await app.evaluate(({ clipboard }) => clipboard.readImage().isEmpty()), false);
+  assert.equal(
+    await app.evaluate(async ({ clipboard }) => {
+      const items = await clipboard.read();
+      return items.some((item) => item.types.includes("image/png"));
+    }),
+    true,
+  );
 
   const pngFile = await downloadFrom(card.locator('button[title="下载"]'));
   assert.match(pngFile, /\.png$/i);
@@ -779,7 +812,7 @@ test("PDF：非法文件、多页 PNG、单页下载与 ZIP 内容", async () =>
   assertPng(pageFile);
 
   const zip = await downloadFrom(
-    page.locator(".pdf-result-actions button", { hasText: "下载全部 ZIP" }),
+    page.locator(".pdf-result-header-actions button", { hasText: "下载全部 ZIP" }),
   );
   const entries = await zipEntries(zip);
   assert.equal(entries.length, 2);
@@ -1510,9 +1543,10 @@ test("国际化：英文覆盖全部模块并持久化", async () => {
   }, "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lY2mAAAAAElFTkSuQmCC");
 
   await page.reload();
-  await page.waitForSelector(".language-switch button");
-  await page.locator(".language-switch button", { hasText: "English" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "en-US");
+  await page.waitForSelector(".settings-button");
+  await setLanguage("English", "en-US");
+  assert.equal(await page.locator(".settings-button span").textContent(), "Settings");
+  assert.equal(await page.locator(".settings-button").getAttribute("title"), "Settings");
 
   const modules = [
     ["JSON Formatter", "JSON Formatter"],
@@ -1530,6 +1564,29 @@ test("国际化：英文覆盖全部模块并持久化", async () => {
 
   const cjkLines = (text) => text.split("\n").filter((line) => /[\u4e00-\u9fff]/.test(line));
 
+  await openSettings();
+  const settingsText = await page.locator("main").evaluate((el) => {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll(".language-option").forEach((node) => node.remove());
+    return clone.innerText;
+  });
+  assert.deepEqual(cjkLines(settingsText), [], `设置页仍存在中文: ${cjkLines(settingsText).join(" | ")}`);
+  assert.deepEqual(
+    await page.locator(".theme-option-label").allInnerTexts(),
+    ["Dark Glass", "Light Glass", "Aurora Violet", "Deep Ocean", "Sunset Orange"],
+  );
+  assert.equal(
+    await page.locator(".settings-card-head p").first().innerText(),
+    "Choose a glass theme or a color skin",
+  );
+  const settingsAttrs = await page.evaluate(() =>
+    [...document.querySelectorAll("main [placeholder], main [title], main [aria-label]")]
+      .flatMap((el) => [el.getAttribute("placeholder"), el.getAttribute("title"), el.getAttribute("aria-label")])
+      .filter((value) => value && /[\u4e00-\u9fff]/.test(value)),
+  );
+  assert.deepEqual(settingsAttrs, [], "设置页属性仍有中文");
+  await closeSettings();
+
   for (const [nav, heading] of modules) {
     await page.getByRole("button", { name: new RegExp(nav) }).click();
     await page.waitForFunction(
@@ -1544,6 +1601,12 @@ test("国际化：英文覆盖全部模块并持久化", async () => {
         .filter((value) => value && /[\u4e00-\u9fff]/.test(value)),
     );
     assert.deepEqual(attrs, [], `${nav} 属性仍有中文`);
+    const headerActionsText = (await page.locator(".header-actions").allInnerTexts()).join("\n");
+    assert.doesNotMatch(
+      headerActionsText,
+      /\b(Clear|Copy|Save)\s+\1\b/i,
+      `${nav} 头部按钮存在重复文案: ${headerActionsText}`,
+    );
   }
 
   await page.getByRole("button", { name: /JSON Formatter/ }).click();
@@ -1567,12 +1630,13 @@ test("国际化：英文覆盖全部模块并持久化", async () => {
   await waitForText(".error-message", "does not support the native color picker");
 
   await page.reload();
-  await page.waitForSelector(".language-switch button");
-  assert.equal(await page.locator(".language-switch button", { hasText: "English" }).getAttribute("aria-pressed"), "true");
+  await page.waitForSelector(".settings-button");
+  await openSettings();
+  assert.equal(await page.locator(".language-option", { hasText: "English" }).getAttribute("aria-pressed"), "true");
+  await closeSettings();
   assert.equal(await page.locator(".nav-label").first().textContent(), "JSON Formatter");
 
-  await page.locator(".language-switch button", { hasText: "中文" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  await setLanguage("中文", "zh-CN");
   assert.equal(await page.locator(".nav-label").first().textContent(), "JSON 格式化");
 });
 
@@ -1584,9 +1648,8 @@ test("国际化：英文数据状态无中文", async () => {
       body: JSON.stringify({ responseStatus: 200, responseData: { translatedText: "user profile" } }),
     });
   await page.route("**/api.mymemory.translated.net/**", handler);
-  await page.waitForSelector(".language-switch button");
-  await page.locator(".language-switch button", { hasText: "English" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "en-US");
+  await page.waitForSelector(".settings-button");
+  await setLanguage("English", "en-US");
 
   const assertEnglish = async (label) => {
     const text = await page.locator("main").innerText();
@@ -1672,15 +1735,13 @@ test("国际化：英文数据状态无中文", async () => {
   );
   await assertEnglish("Color picker result");
 
-  await page.locator(".language-switch button", { hasText: "中文" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  await setLanguage("中文", "zh-CN");
   await page.unroute("**/api.mymemory.translated.net/**", handler);
 });
 
 test("国际化：主进程错误为英文", async () => {
-  await page.waitForSelector(".language-switch button");
-  await page.locator(".language-switch button", { hasText: "English" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "en-US");
+  await page.waitForSelector(".settings-button");
+  await setLanguage("English", "en-US");
   await page.waitForTimeout(200);
 
   const missing = await page.evaluate(() =>
@@ -1709,14 +1770,12 @@ test("国际化：主进程错误为英文", async () => {
   assert.equal(missingDoc.success, false);
   assert.doesNotMatch(missingDoc.error, /[\u4e00-\u9fff]/);
 
-  await page.locator(".language-switch button", { hasText: "中文" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  await setLanguage("中文", "zh-CN");
 });
 
 test("屏幕适配：1000x700 与 1200x760 无横向溢出", async () => {
-  await page.waitForSelector(".language-switch button");
-  await page.locator(".language-switch button", { hasText: "中文" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  await page.waitForSelector(".settings-button");
+  await setLanguage("中文", "zh-CN");
   await setWindowSize(1000, 700);
   const modules = [
     "JSON 格式化","变量命名","图片转换","图片压缩","图片去水印",
@@ -1736,7 +1795,33 @@ test("屏幕适配：1000x700 与 1200x760 无横向溢出", async () => {
     assert.ok(overflow.main <= 1, `${name} 主区域横向溢出 ${overflow.main}px`);
   }
 
-  await page.locator(".language-switch button", { hasText: "English" }).click();
+  await openSettings();
+  const settingsOverflow = await page.evaluate(() => ({
+    doc: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    main: (() => {
+      const el = document.querySelector(".main-content");
+      return el ? el.scrollWidth - el.clientWidth : 0;
+    })(),
+    cards: document.querySelectorAll(".settings-card").length,
+  }));
+  assert.ok(settingsOverflow.doc <= 1, `设置页横向溢出 ${settingsOverflow.doc}px`);
+  assert.ok(settingsOverflow.main <= 1, `设置页主区域横向溢出 ${settingsOverflow.main}px`);
+  assert.equal(settingsOverflow.cards, 3);
+  const themeGrid = await page.evaluate(() => {
+    const grid = document.querySelector(".theme-options");
+    const options = [...document.querySelectorAll(".theme-option")];
+    return {
+      count: options.length,
+      gridOverflow: grid ? grid.scrollWidth - grid.clientWidth : 0,
+      clipped: options.filter((el) => el.scrollWidth > el.clientWidth + 1).length,
+    };
+  });
+  assert.equal(themeGrid.count, 5);
+  assert.ok(themeGrid.gridOverflow <= 1, `主题网格横向溢出 ${themeGrid.gridOverflow}px`);
+  assert.equal(themeGrid.clipped, 0);
+  await closeSettings();
+
+  await setLanguage("English", "en-US");
   await page.waitForTimeout(200);
   const clipped = await page.evaluate(() =>
     [...document.querySelectorAll(".nav-label")].filter(
@@ -1765,9 +1850,32 @@ test("屏幕适配：1000x700 与 1200x760 无横向溢出", async () => {
   }
 
   await setWindowSize(1200, 760);
-  await page.locator(".language-switch button", { hasText: "中文" }).click();
+  await openSettings();
+  const englishThemes = await page.evaluate(() => ({
+    labels: [...document.querySelectorAll(".theme-option-label")].map((el) => el.textContent),
+    clipped: [...document.querySelectorAll(".theme-option-label")].filter(
+      (el) => el.scrollWidth > el.clientWidth + 1,
+    ).length,
+    previews: [...document.querySelectorAll(".theme-preview")].map(
+      (el) => el.getBoundingClientRect().width,
+    ),
+  }));
+  assert.deepEqual(englishThemes.labels, [
+    "Dark Glass",
+    "Light Glass",
+    "Aurora Violet",
+    "Deep Ocean",
+    "Sunset Orange",
+  ]);
+  assert.equal(englishThemes.clipped, 0);
+  assert.ok(
+    englishThemes.previews.every((width) => width > 100),
+    `英文主题预览宽度异常: ${englishThemes.previews.join(", ")}`,
+  );
+  await closeSettings();
+  await setLanguage("中文", "zh-CN");
   await page.reload();
-  await page.waitForSelector(".nav-item");
+  await page.waitForSelector(".settings-button");
   await setWindowSize(1200, 760);
   assert.ok(true);
 });
@@ -1795,9 +1903,8 @@ test("文档转 Markdown：转换失败提示", async () => {
   await waitForText(".progress-label", "转换失败");
 });
 test("更新检查：发现新版本与已是最新", async () => {
-  await page.waitForSelector(".version-button");
-  await page.locator(".language-switch button", { hasText: "English" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "en-US");
+  await page.waitForSelector(".settings-button");
+  await setLanguage("English", "en-US");
 
   await app.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler("check-updates");
@@ -1812,6 +1919,15 @@ test("更新检查：发现新版本与已是最新", async () => {
   await page.waitForSelector(".update-banner.available");
   await waitForText(".update-message", "New version v9.9.9");
   assert.equal(await page.locator(".update-banner button", { hasText: "Download" }).count(), 1);
+
+  await openSettings();
+  await page.waitForSelector(".settings-update-status.available");
+  await waitForText(".settings-update-status", "New version v9.9.9");
+  assert.equal(
+    await page.locator(".settings-card.updates button", { hasText: "Download" }).count(),
+    1,
+  );
+  await closeSettings();
   await page.locator(".update-close").click();
 
   await app.evaluate(({ ipcMain }) => {
@@ -1823,11 +1939,152 @@ test("更新检查：发现新版本与已是最新", async () => {
       url: "",
     }));
   });
-  await page.locator(".version-button").click();
+  await openSettings();
+  await clickButton(page.locator(".settings-card.updates"), "Check for updates");
+  await page.waitForSelector(".settings-update-status.latest");
   await page.waitForSelector(".update-banner.latest");
   await waitForText(".update-message", "up to date");
+  await closeSettings();
   await page.locator(".update-close").click();
 
-  await page.locator(".language-switch button", { hasText: "中文" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  await setLanguage("中文", "zh-CN");
+});
+
+test("主题切换：五套玻璃主题、彩色皮肤与持久化", async () => {
+  await page.waitForSelector(".settings-button");
+  await openSettings();
+
+  const themeOptions = page.locator(".theme-option");
+  assert.equal(await themeOptions.count(), 5);
+  const optionThemes = await themeOptions.evaluateAll((els) =>
+    els.map((el) => el.dataset.themeValue ?? ""),
+  );
+  assert.deepEqual(optionThemes, [
+    "glass-dark",
+    "glass-light",
+    "glass-aurora",
+    "glass-ocean",
+    "glass-sunset",
+  ]);
+  const previewWidths = await page.locator(".theme-preview").evaluateAll((els) =>
+    els.map((el) => el.getBoundingClientRect().width),
+  );
+  assert.equal(previewWidths.length, 5);
+  assert.ok(
+    previewWidths.every((width) => width > 100),
+    `主题预览宽度异常: ${previewWidths.join(", ")}`,
+  );
+  const controlsGlass = await page.evaluate(() =>
+    [".theme-option", ".language-option", ".settings-version-row"].map((selector) => {
+      const el = document.querySelector(selector);
+      if (!el) return { selector, blur: "missing", shadow: "missing" };
+      const style = getComputedStyle(el);
+      return {
+        selector,
+        blur: style.backdropFilter || style.webkitBackdropFilter,
+        shadow: style.boxShadow,
+      };
+    }),
+  );
+  for (const control of controlsGlass) {
+    assert.match(control.blur, /blur/, `${control.selector} 缺少玻璃模糊`);
+    assert.notEqual(control.shadow, "none", `${control.selector} 缺少玻璃高光`);
+  }
+
+  await page.locator('.theme-option[data-theme-value="glass-light"]').click();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "glass-light");
+  assert.equal(
+    await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme),
+    "light",
+  );
+  const lightGlass = await page.locator(".settings-card").first().evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      backdrop: style.backdropFilter || style.webkitBackdropFilter,
+      background: style.backgroundColor,
+    };
+  });
+  assert.match(lightGlass.backdrop, /blur/);
+  assert.notEqual(lightGlass.background, "rgba(0, 0, 0, 0)");
+  const lightActiveColor = await page
+    .locator(".language-option.active")
+    .evaluate((el) => getComputedStyle(el).color);
+  assert.notEqual(lightActiveColor, "rgba(0, 0, 0, 0)");
+  const lightOverflow = await page.evaluate(() => ({
+    doc: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    main: (() => {
+      const el = document.querySelector(".main-content");
+      return el ? el.scrollWidth - el.clientWidth : 0;
+    })(),
+  }));
+  assert.ok(lightOverflow.doc <= 1);
+  assert.ok(lightOverflow.main <= 1);
+  await closeSettings();
+
+  await page.reload();
+  await page.waitForSelector(".settings-button");
+  assert.equal(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    "glass-light",
+  );
+
+  await openSettings();
+  assert.equal(
+    await page.locator('.theme-option[data-theme-value="glass-light"]').getAttribute("aria-pressed"),
+    "true",
+  );
+
+  const skinAccents = {
+    "glass-aurora": "168, 85, 247",
+    "glass-ocean": "6, 182, 212",
+    "glass-sunset": "249, 115, 22",
+  };
+  for (const [skin, accent] of Object.entries(skinAccents)) {
+    await page.locator(`.theme-option[data-theme-value="${skin}"]`).click();
+    await page.waitForFunction((next) => document.documentElement.dataset.theme === next, skin);
+    assert.equal(
+      await page.locator(`.theme-option[data-theme-value="${skin}"]`).getAttribute("aria-pressed"),
+      "true",
+    );
+    const settingsBackground = await page
+      .locator(".settings-button.active")
+      .evaluate((el) => getComputedStyle(el).backgroundImage);
+    assert.ok(settingsBackground.includes(accent), `${skin} 主色未生效: ${settingsBackground}`);
+    assert.equal(
+      await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme),
+      "dark",
+    );
+  }
+  await closeSettings();
+
+  await page.reload();
+  await page.waitForSelector(".settings-button");
+  assert.equal(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    "glass-sunset",
+  );
+
+  await openSettings();
+  assert.equal(
+    await page.locator('.theme-option[data-theme-value="glass-sunset"]').getAttribute("aria-pressed"),
+    "true",
+  );
+  await page.locator('.theme-option[data-theme-value="glass-dark"]').click();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "glass-dark");
+  await page.waitForFunction(() => {
+    const el = document.querySelector(".language-option.active");
+    if (!el) return false;
+    const channels = (getComputedStyle(el).color.match(/\d+/g) || []).map(Number);
+    return channels.length >= 3 && channels.every((value) => value > 240);
+  }, null, { timeout: 5000 });
+  assert.equal(
+    await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme),
+    "dark",
+  );
+  const darkActiveColor = await page
+    .locator(".language-option.active")
+    .evaluate((el) => getComputedStyle(el).color);
+  const [red, green, blue] = darkActiveColor.match(/\d+/g).map(Number);
+  assert.ok(red > 240 && green > 240 && blue > 240, `深色主题活动按钮颜色异常: ${darkActiveColor}`);
+  await closeSettings();
 });

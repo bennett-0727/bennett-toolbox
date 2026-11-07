@@ -2,6 +2,8 @@ import * as React from "react";
 import Sidebar from "./components/Sidebar";
 import type { ModuleInfo } from "./shared/types";
 import { applyLanguage, getInitialLanguage, type Language } from "./i18n";
+import { applyTheme, getInitialTheme, type Theme } from "./theme";
+import SettingsPage from "./components/SettingsPage";
 import JsonFormatter from "./modules/JsonFormatter";
 import NamingConverter from "./modules/NamingConverter";
 import ImageConverter from "./modules/ImageConverter";
@@ -52,7 +54,9 @@ type UpdateStatus = "idle" | "checking" | "latest" | "available" | "error";
 function App() {
   const [modules, setModules] = React.useState<ModuleInfo[]>(loadModuleOrder);
   const [activeModuleId, setActiveModuleId] = React.useState("json-formatter");
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [language, setLanguageState] = React.useState<Language>(getInitialLanguage);
+  const [theme, setThemeState] = React.useState<Theme>(getInitialTheme);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
   const [updateVersion, setUpdateVersion] = React.useState("");
   const [updateUrl, setUpdateUrl] = React.useState("");
@@ -91,6 +95,15 @@ function App() {
   React.useEffect(() => {
     applyLanguage(language);
   }, [language]);
+
+  React.useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  const handleThemeChange = React.useCallback((next: Theme) => {
+    applyTheme(next);
+    setThemeState(next);
+  }, []);
 
   const handleLanguageChange = React.useCallback((next: Language) => {
     applyLanguage(next);
@@ -144,10 +157,13 @@ function App() {
       <Sidebar
         modules={modules}
         activeModule={activeModuleId}
-        onModuleSelect={setActiveModuleId}
+        settingsOpen={settingsOpen}
+        onModuleSelect={(id) => {
+          setActiveModuleId(id);
+          setSettingsOpen(false);
+        }}
         onModuleReorder={handleReorder}
-        language={language}
-        onLanguageChange={handleLanguageChange}
+        onOpenSettings={() => setSettingsOpen(true)}
         updateStatus={updateStatus}
         onCheckUpdates={() => checkUpdates(true)}
       />
@@ -171,7 +187,23 @@ function App() {
             </button>
           </div>
         )}
-        <div className="main-module">{renderActiveModule()}</div>
+        <div className="main-module">
+          {settingsOpen ? (
+            <SettingsPage
+              language={language}
+              theme={theme}
+              updateStatus={updateStatus}
+              updateVersion={updateVersion}
+              onLanguageChange={handleLanguageChange}
+              onThemeChange={handleThemeChange}
+              onCheckUpdates={() => checkUpdates(true)}
+              onOpenUpdate={openUpdate}
+              onClose={() => setSettingsOpen(false)}
+            />
+          ) : (
+            renderActiveModule()
+          )}
+        </div>
       </main>
     </div>
   );

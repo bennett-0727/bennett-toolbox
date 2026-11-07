@@ -1,20 +1,19 @@
 import * as React from "react";
 import { APP_VERSION } from "../shared/version";
 import type { ModuleInfo } from "../shared/types";
-import { LANGUAGES, type Language } from "../i18n";
 
 interface SidebarProps {
   modules: ModuleInfo[];
   activeModule: string;
+  settingsOpen: boolean;
   onModuleSelect: (id: string) => void;
   onModuleReorder: (from: number, to: number) => void;
-  language: Language;
-  onLanguageChange: (language: Language) => void;
+  onOpenSettings: () => void;
   updateStatus: string;
   onCheckUpdates: () => void;
 }
 
-function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, language, onLanguageChange, updateStatus, onCheckUpdates }: SidebarProps) {
+function Sidebar({ modules, activeModule, settingsOpen, onModuleSelect, onModuleReorder, onOpenSettings, updateStatus, onCheckUpdates }: SidebarProps) {
   const [draggingIndex, setDraggingIndex] = React.useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
   const draggedItemRef = React.useRef<HTMLElement | null>(null);
@@ -85,7 +84,7 @@ function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, langu
                 key={module.id}
               >
                 <button
-                  className={`nav-item ${activeModule === module.id ? "active" : ""}`}
+                  className={`nav-item ${activeModule === module.id && !settingsOpen ? "active" : ""}`}
                   onClick={() => onModuleSelect(module.id)}
                 >
                   <span className="drag-handle">⋮⋮</span>
@@ -98,23 +97,19 @@ function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, langu
         </div>
       </nav>
       <div className="sidebar-footer">
-        <div className="language-switch" role="group" aria-label="语言">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18" />
+        <button
+          type="button"
+          className={`settings-button ${settingsOpen ? "active" : ""}`}
+          onClick={onOpenSettings}
+          title="设置"
+          aria-pressed={settingsOpen}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
           </svg>
-          {LANGUAGES.map((item) => (
-            <button
-              type="button"
-              key={item.value}
-              className={language === item.value ? "active" : ""}
-              aria-pressed={language === item.value}
-              onClick={() => onLanguageChange(item.value)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+          <span>设置</span>
+        </button>
         <button
           className={`version version-button ${updateStatus === "available" ? "has-update" : ""}`}
           onClick={onCheckUpdates}

@@ -34,25 +34,30 @@
 | **文档转 MD** | 调用 MarkItDown 转换 PDF、Office、HTML 等格式，可复制或保存 Markdown。<br><img src="docs/screenshots/10-document-converter.png" width="560" /> |
 | **截图悬浮** | 选择屏幕源，支持整屏与框选截图、悬浮置顶、复制和下载。<br><img src="docs/screenshots/11-screenshot.png" width="560" /> |
 | **屏幕取色** | EyeDropper 取色，展示 HEX、RGB、HSL、CSS 格式与历史记录。<br><img src="docs/screenshots/12-color-picker.png" width="560" /> |
+| **设置页** | 集中管理深色、浅色与彩色玻璃皮肤、界面语言与版本更新，卡片式玻璃布局支持窄窗口。<br><img src="docs/screenshots/14-settings.png" width="560" /> |
 
-### 语言与屏幕适配
+### 设置、语言与屏幕适配
 
-- 侧边栏底部可切换 中文 / English，选择保存到本地并在重启后恢复
+- 侧边栏底部“设置”进入独立设置页，集中切换 中文 / English 与五套玻璃主题
+- 内置深色玻璃、浅色玻璃、极光紫、深海青、落日橙；外观分区提供对应配色预览，选择保存到本地并在重启后恢复
+- 设置页同时显示当前版本、检查更新与“前往下载”入口
 - 界面文案、错误提示、主进程对话框与悬浮窗文案均支持中英双语
 - 使用内联 SVG 图标，不把中文烘焙进图标或位图
-- 已验证 1000×700 与 1200×760 窗口下无横向溢出，英文侧边栏不截断
+- 已验证 1000×700 与 1200×760 窗口下无横向溢出，设置页自动单列，英文侧边栏不截断
+
+![浅色玻璃主题](docs/screenshots/13-overview-light.png)
 
 ## 版本更新
 
 - 应用启动时读取 GitHub Releases，自动检测是否有新版本
-- 侧边栏版本号可点击手动检查；有新版本时显示提示条和“前往下载”
+- 侧边栏版本号或设置页“检查更新”可手动检查；有新版本时显示提示条和“前往下载”
 - 仅检测与跳转，不自动下载或安装；只允许打开本仓库的 GitHub 链接
 
 ## 技术栈
 
-- Electron 28
-- React 19.3.1 + TypeScript 5
-- Vite 5
+- Electron 45
+- React 19.3.1 + TypeScript 7
+- Vite 8
 - Playwright e2e
 
 ## 已验证
@@ -61,7 +66,7 @@
 - `npx tsc --noEmit` 0 错误
 - `npx vite build` 成功
 - 浏览器 e2e：3/3 通过
-- Electron 打包版功能 e2e：53/53 通过（11 个模块 + 侧边栏 + 主进程 IPC）
+- Electron 打包版功能 e2e：54/54 通过（11 个模块 + 设置页 + 侧边栏 + 主进程 IPC）
 - Electron 打包版冒烟 e2e：7/7 通过
 - `npm run build:electron` 成功
 
@@ -73,7 +78,7 @@ npm run setup:markitdown  # 可选：准备文档转换器（文档转 MD 需要
 npm run dev              # 前端开发服务器 http://127.0.0.1:5173
 npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
-npm run test:electron    # Electron 功能测试（53 项，需先构建；CI 跳过 7 项屏幕用例）
+npm run test:electron    # Electron 功能测试（54 项，需先构建；CI 跳过 7 项屏幕用例）
 npm run test:electron:smoke  # Electron 冒烟测试（7 项）
 ```
 
@@ -86,7 +91,7 @@ ELECTRON_APP_PATH="$PWD/release/Bennett Toolbox-darwin-arm64/Bennett Toolbox.app
 
 测试素材位于 `tests/fixtures/`。
 
-运行 Electron 需要系统安装 Electron 28 运行时（`electron .`）。
+运行 Electron 需要系统安装 Electron 45 运行时（`electron .`）。
 
 ## 目录结构
 
@@ -95,6 +100,7 @@ ELECTRON_APP_PATH="$PWD/release/Bennett Toolbox-darwin-arm64/Bennett Toolbox.app
 ├── src/main.tsx              # React 入口
 ├── src/App.tsx               # 模块注册表、切换、拖拽排序持久化
 ├── src/components/Sidebar.tsx
+├── src/components/SettingsPage.tsx  # 设置页：主题、语言、版本与更新
 ├── src/components/FormatItem.tsx   # 颜色格式复制行
 ├── src/modules/              # 11 个工具模块
 │   ├── JsonFormatter.tsx
