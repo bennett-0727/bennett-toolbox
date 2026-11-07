@@ -10,12 +10,14 @@
 - 推送 `v*` tag 自动构建并附加到 GitHub Release，支持手动触发
 - tag 构建自动同步 `package.json` 版本号
 - 本地打包脚本 `package:mac`、`package:win`
-- Electron 全功能 e2e（52 项）与 `tests/fixtures/` 测试素材
+- Electron 全功能 e2e（53 项）与 `tests/fixtures/` 测试素材
 - README 功能截图与介绍（11 个模块）
 - 中英双语与侧边栏语言切换，选择持久化到 localStorage
 - 主进程错误、原生对话框与悬浮窗文案国际化
 - 1000×700 / 1200×760 响应式布局与英文侧边栏适配
 - 语言切换使用内联 SVG 图标
+- 基于 GitHub Releases 的版本检查、更新提示与下载跳转
+- e2e 增加更新检查 stub 覆盖
 - 本地打包通过 `extraResources` 内置 MarkItDown，真实转换器 e2e 覆盖 TXT/PDF
 - `npm run setup:markitdown` 准备本地转换器
 - CI 自动准备 MarkItDown：macOS arm64 下载 Release 资源，其余平台 PyInstaller 构建

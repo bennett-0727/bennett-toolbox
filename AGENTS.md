@@ -24,8 +24,9 @@
 - 名称：Bennett Toolbox
 - 技术栈：Electron 28、React 19.3.1、TypeScript 5、Vite 5
 - 运行时：Node.js >= 24.8.0（验证环境 26.13.0），包管理器 npm
-- 测试：浏览器 `npm run test:e2e`；Electron 功能 `npm run test:electron`（52 项）；打包版通过 `ELECTRON_APP_PATH` 指向 `.app` 可执行文件
+- 测试：浏览器 `npm run test:e2e`；Electron 功能 `npm run test:electron`（53 项）；打包版通过 `ELECTRON_APP_PATH` 指向 `.app` 可执行文件
 - 屏幕适配：验证 1000×700 与 1200×760 无横向溢出，英文侧栏不截断
+- 更新检查：读取 GitHub `bennett-0727/bennett-toolbox` 的 Releases；仅检测与跳转，不自动下载/安装
 - 校验：`npm run typecheck`、`npm run build`、`npm run build:electron`
 
 ## 备注

@@ -327,5 +327,10 @@
   "(点击刷新按钮获取)": "(click Refresh to load)",
   "截图": "Screenshot",
   "警": "!",
-  "共扫描": "Scanned"
+  "共扫描": "Scanned",
+  "检查更新": "Check for updates",
+  "已是最新版本": "You are up to date",
+  "检查更新失败": "Failed to check for updates",
+  "前往下载": "Download",
+  "发现新版本 v": "New version v"
 }

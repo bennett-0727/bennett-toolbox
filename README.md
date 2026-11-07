@@ -42,6 +42,12 @@
 - 使用内联 SVG 图标，不把中文烘焙进图标或位图
 - 已验证 1000×700 与 1200×760 窗口下无横向溢出，英文侧边栏不截断
 
+## 版本更新
+
+- 应用启动时读取 GitHub Releases，自动检测是否有新版本
+- 侧边栏版本号可点击手动检查；有新版本时显示提示条和“前往下载”
+- 仅检测与跳转，不自动下载或安装；只允许打开本仓库的 GitHub 链接
+
 ## 技术栈
 
 - Electron 28
@@ -55,7 +61,7 @@
 - `npx tsc --noEmit` 0 错误
 - `npx vite build` 成功
 - 浏览器 e2e：3/3 通过
-- Electron 打包版功能 e2e：52/52 通过（11 个模块 + 侧边栏 + 主进程 IPC）
+- Electron 打包版功能 e2e：53/53 通过（11 个模块 + 侧边栏 + 主进程 IPC）
 - Electron 打包版冒烟 e2e：7/7 通过
 - `npm run build:electron` 成功
 
@@ -67,7 +73,7 @@ npm run setup:markitdown  # 可选：准备文档转换器（文档转 MD 需要
 npm run dev              # 前端开发服务器 http://127.0.0.1:5173
 npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
-npm run test:electron    # Electron 功能测试（52 项，需先构建；CI 跳过 7 项屏幕用例）
+npm run test:electron    # Electron 功能测试（53 项，需先构建；CI 跳过 7 项屏幕用例）
 npm run test:electron:smoke  # Electron 冒烟测试（7 项）
 ```
 

@@ -54,6 +54,7 @@ const patterns: Array<[RegExp, string]> = [
   [/^复制失败: ([\s\S]*)$/, "Copy failed: $1"],
   [/^加载模块顺序失败: ([\s\S]*)$/, "Failed to load module order: $1"],
   [/^搜索失败：([\s\S]*)$/, "Search failed: $1"],
+  [/^发现新版本 v(.+)$/, "New version v$1 available"],
   [/^完成 (\d+) 张，失败 (\d+) 张$/, "$1 succeeded, $2 failed"],
   [/^已完成 (\d+) 张图片压缩$/, "Compressed $1 images"],
   [/^已完成 (\d+) 张图片转换$/, "Converted $1 images"],

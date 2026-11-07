@@ -10,6 +10,83 @@ if (process.env.E2E_DISABLE_GPU === "1") {
   electron.app.commandLine.appendSwitch("disable-gpu");
 }
 
+const UPDATE_REPO = "bennett-0727/bennett-toolbox";
+
+function parseVersion(value: string): number[] {
+  return value.replace(/^v/i, "").split(".").map((part) => Number.parseInt(part, 10) || 0);
+}
+
+function compareVersions(a: string, b: string): number {
+  const left = parseVersion(a);
+  const right = parseVersion(b);
+  for (let index = 0; index < 3; index += 1) {
+    const diff = (left[index] || 0) - (right[index] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+async function checkForUpdates() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=20`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "Bennett-Toolbox",
+        },
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) throw new Error(`GitHub API ${response.status}`);
+    const releases = (await response.json()) as Array<{
+      tag_name?: string;
+      html_url?: string;
+      name?: string;
+      published_at?: string;
+      draft?: boolean;
+      prerelease?: boolean;
+    }>;
+    const candidates = releases
+      .filter(
+        (release) =>
+          !release.draft &&
+          !release.prerelease &&
+          typeof release.tag_name === "string" &&
+          /^v\d+\.\d+\.\d+$/.test(release.tag_name),
+      )
+      .sort((a, b) => compareVersions(b.tag_name || "", a.tag_name || ""));
+    const latest = candidates[0];
+    const currentVersion = electron.app.getVersion();
+    if (!latest) {
+      return { currentVersion, latestVersion: currentVersion, hasUpdate: false, url: "" };
+    }
+    const latestVersion = (latest.tag_name || "").replace(/^v/, "");
+    return {
+      currentVersion,
+      latestVersion,
+      hasUpdate: compareVersions(latestVersion, currentVersion) > 0,
+      url: latest.html_url || `https://github.com/${UPDATE_REPO}/releases`,
+      name: latest.name || latest.tag_name,
+      publishedAt: latest.published_at || null,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+electron.ipcMain.handle("check-updates", async () => checkForUpdates());
+electron.ipcMain.handle("open-external", async (_event, url: unknown) => {
+  if (
+    typeof url === "string" &&
+    url.startsWith(`https://github.com/${UPDATE_REPO}`)
+  ) {
+    await electron.shell.openExternal(url);
+  }
+});
+
 let language: "zh-CN" | "en-US" = "zh-CN";
 const tr = (text: string) => translate(language, text);
 

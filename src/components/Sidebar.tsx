@@ -10,9 +10,11 @@ interface SidebarProps {
   onModuleReorder: (from: number, to: number) => void;
   language: Language;
   onLanguageChange: (language: Language) => void;
+  updateStatus: string;
+  onCheckUpdates: () => void;
 }
 
-function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, language, onLanguageChange }: SidebarProps) {
+function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, language, onLanguageChange, updateStatus, onCheckUpdates }: SidebarProps) {
   const [draggingIndex, setDraggingIndex] = React.useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
   const draggedItemRef = React.useRef<HTMLElement | null>(null);
@@ -113,7 +115,14 @@ function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, langu
             </button>
           ))}
         </div>
-        <span className="version">v{APP_VERSION}</span>
+        <button
+          className={`version version-button ${updateStatus === "available" ? "has-update" : ""}`}
+          onClick={onCheckUpdates}
+          title="检查更新"
+        >
+          v{APP_VERSION}
+          {updateStatus === "available" && <span className="update-dot" />}
+        </button>
       </div>
     </aside>
   );

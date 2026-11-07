@@ -47,10 +47,46 @@ function loadModuleOrder(): ModuleInfo[] {
   return MODULES;
 }
 
+type UpdateStatus = "idle" | "checking" | "latest" | "available" | "error";
+
 function App() {
   const [modules, setModules] = React.useState<ModuleInfo[]>(loadModuleOrder);
   const [activeModuleId, setActiveModuleId] = React.useState("json-formatter");
   const [language, setLanguageState] = React.useState<Language>(getInitialLanguage);
+  const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
+  const [updateVersion, setUpdateVersion] = React.useState("");
+  const [updateUrl, setUpdateUrl] = React.useState("");
+
+  const checkUpdates = React.useCallback(async (manual: boolean) => {
+    if (typeof window === "undefined" || typeof window.require !== "function") return;
+    setUpdateStatus("checking");
+    try {
+      const result = await window
+        .require("electron")
+        .ipcRenderer.invoke("check-updates");
+      if (result?.hasUpdate) {
+        setUpdateVersion(result.latestVersion || "");
+        setUpdateUrl(result.url || "");
+        setUpdateStatus("available");
+      } else {
+        setUpdateStatus(manual ? "latest" : "idle");
+      }
+    } catch {
+      setUpdateStatus(manual ? "error" : "idle");
+    }
+  }, []);
+
+  React.useEffect(() => {
+    checkUpdates(false);
+  }, [checkUpdates]);
+
+  const dismissUpdate = React.useCallback(() => setUpdateStatus("idle"), []);
+
+  const openUpdate = React.useCallback(() => {
+    if (updateUrl && typeof window !== "undefined" && typeof window.require === "function") {
+      window.require("electron").ipcRenderer.invoke("open-external", updateUrl);
+    }
+  }, [updateUrl]);
 
   React.useEffect(() => {
     applyLanguage(language);
@@ -112,8 +148,31 @@ function App() {
         onModuleReorder={handleReorder}
         language={language}
         onLanguageChange={handleLanguageChange}
+        updateStatus={updateStatus}
+        onCheckUpdates={() => checkUpdates(true)}
       />
-      <main className="main-content" key={language}>{renderActiveModule()}</main>
+      <main className="main-content" key={language}>
+        {updateStatus !== "idle" && updateStatus !== "checking" && (
+          <div className={`update-banner ${updateStatus}`}>
+            <span className="update-message">
+              {updateStatus === "available"
+                ? `发现新版本 v${updateVersion}`
+                : updateStatus === "latest"
+                  ? "已是最新版本"
+                  : "检查更新失败"}
+            </span>
+            {updateStatus === "available" && (
+              <button className="btn btn-primary btn-sm" onClick={openUpdate}>
+                前往下载
+              </button>
+            )}
+            <button className="update-close" onClick={dismissUpdate} aria-label="关闭">
+              ×
+            </button>
+          </div>
+        )}
+        <div className="main-module">{renderActiveModule()}</div>
+      </main>
     </div>
   );
 }

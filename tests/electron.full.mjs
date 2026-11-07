@@ -142,10 +142,11 @@ async function zipEntries(name) {
 }
 
 before(async () => {
+  const launchArgs = ["--disable-gpu", "--disable-gpu-compositing"];
   app = await electron.launch({
     ...(process.env.ELECTRON_APP_PATH
-      ? { executablePath: process.env.ELECTRON_APP_PATH }
-      : { args: ["."] }),
+      ? { executablePath: process.env.ELECTRON_APP_PATH, args: launchArgs }
+      : { args: [".", ...launchArgs] }),
     env: { ...process.env, MARKITDOWN_BIN: MD_BIN },
   });
   page = await app.firstWindow();
@@ -177,6 +178,13 @@ before(async () => {
         name: "doc.txt",
         size: 17,
         extension: "TXT",
+      }));
+      ipcMain.removeHandler("check-updates");
+      ipcMain.handle("check-updates", async () => ({
+        currentVersion: "1.1.2",
+        latestVersion: "1.1.2",
+        hasUpdate: false,
+        url: "",
       }));
     },
     { searchDir: SEARCH_DIR, docPath: path.join(FIX, "documents/doc.txt") },
@@ -1785,4 +1793,41 @@ test("文档转 Markdown：转换失败提示", async () => {
   await clickButton(page.locator(".document-summary"), "转换为 Markdown");
   await waitForText(".error-box", "boom", 30000);
   await waitForText(".progress-label", "转换失败");
+});
+test("更新检查：发现新版本与已是最新", async () => {
+  await page.waitForSelector(".version-button");
+  await page.locator(".language-switch button", { hasText: "English" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "en-US");
+
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("check-updates");
+    ipcMain.handle("check-updates", async () => ({
+      currentVersion: "1.1.2",
+      latestVersion: "9.9.9",
+      hasUpdate: true,
+      url: "https://github.com/bennett-0727/bennett-toolbox/releases/tag/v9.9.9",
+    }));
+  });
+  await page.locator(".version-button").click();
+  await page.waitForSelector(".update-banner.available");
+  await waitForText(".update-message", "New version v9.9.9");
+  assert.equal(await page.locator(".update-banner button", { hasText: "Download" }).count(), 1);
+  await page.locator(".update-close").click();
+
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler("check-updates");
+    ipcMain.handle("check-updates", async () => ({
+      currentVersion: "1.1.2",
+      latestVersion: "1.1.2",
+      hasUpdate: false,
+      url: "",
+    }));
+  });
+  await page.locator(".version-button").click();
+  await page.waitForSelector(".update-banner.latest");
+  await waitForText(".update-message", "up to date");
+  await page.locator(".update-close").click();
+
+  await page.locator(".language-switch button", { hasText: "中文" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
 });
