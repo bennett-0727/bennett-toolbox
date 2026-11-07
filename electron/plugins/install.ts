@@ -1,6 +1,7 @@
 import * as electron from "electron";
 import * as fs from "fs";
 import * as path from "path";
+import { pathToFileURL } from "url";
 import type {
   InstalledPlugin,
   PluginBundlePayload,
@@ -24,7 +25,6 @@ import {
   pluginVersionDir,
   readPluginState,
   updatePluginState,
-  writePluginState,
 } from "./state";
 import { compareVersions } from "./version";
 
@@ -228,10 +228,6 @@ export async function setPluginActivation(
 
 export async function refreshPluginRegistry(): Promise<PluginSnapshot> {
   const source = await loadRegistry({ forceRefresh: true });
-  const state = await readPluginState();
-  if (Object.keys(state.plugins).length === 0) {
-    await writePluginState(state);
-  }
   return {
     installed: (await listPluginSnapshot()).installed,
     available: source.registry.plugins,
@@ -250,7 +246,11 @@ export async function readPluginBundle(id: string): Promise<PluginBundlePayload>
     throw new PluginValidationError("插件入口路径越界");
   }
   const code = await fs.promises.readFile(mainPath, "utf8");
-  return { manifest, code };
+  return {
+    manifest,
+    code,
+    baseUrl: `${pathToFileURL(pluginVersionDir(id, entry.version)).href}/`,
+  };
 }
 
 export async function openPluginsFolder(): Promise<void> {

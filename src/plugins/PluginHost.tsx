@@ -46,7 +46,6 @@ function PluginHost({ plugin, language, theme }: PluginHostProps) {
     plugin.manifest.version,
     plugin.manifest.main,
     language,
-    theme,
     retry,
   ]);
 

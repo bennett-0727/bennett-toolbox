@@ -1,6 +1,6 @@
 # Bennett Toolbox
 
-多功能工具箱桌面应用，基于 Electron + React + TypeScript，内置 11 个常用工具，并支持从独立插件仓库按需安装扩展工具。
+多功能工具箱桌面应用，基于 Electron + React + TypeScript。11 个常用工具以官方插件形式按需安装，应用壳提供插件管理、主题、语言与组件下载。
 
 ![Bennett Toolbox 主界面](docs/screenshots/01-overview.png)
 
@@ -36,11 +36,13 @@
 | **文档转 MD** | 调用 MarkItDown 转换 PDF、Office、HTML 等格式；MarkItDown 作为按需下载组件，不随安装包分发。<br><img src="docs/screenshots/10-document-converter.png" width="560" /> |
 | **截图悬浮** | 选择屏幕源，支持整屏与框选截图、悬浮置顶、复制和下载。<br><img src="docs/screenshots/11-screenshot.png" width="560" /> |
 | **屏幕取色** | EyeDropper 取色，展示 HEX、RGB、HSL、CSS 格式与历史记录。<br><img src="docs/screenshots/12-color-picker.png" width="560" /> |
-| **设置页** | 集中管理深色、浅色与彩色玻璃皮肤、界面语言与版本更新，卡片式玻璃布局支持窄窗口。<br><img src="docs/screenshots/14-settings.png" width="560" /> |
+| **工作台** | 默认进入工作台，安装、卸载、停用或打开插件；顶部/底部状态栏常驻，工具占满主画布。<br><img src="docs/screenshots/15-workbench.png" width="560" /> |
+| **工作台设置** | 工作台内直接切换深色、浅色与彩色玻璃皮肤、界面语言与版本更新，不再有独立设置入口。<br><img src="docs/screenshots/14-settings.png" width="560" /> |
 
 ### 设置、语言与屏幕适配
 
-- 侧边栏底部“设置”进入独立设置页，集中切换 中文 / English 与五套玻璃主题
+- 默认进入工作台，不自动加载插件；打开工具后占满主画布，侧栏与顶栏常驻
+- 工作台内直接切换 中文 / English 与五套玻璃主题，侧栏不再单设设置入口
 - 内置深色玻璃、浅色玻璃、极光紫、深海青、落日橙；外观分区提供对应配色预览，选择保存到本地并在重启后恢复
 - 设置页同时显示当前版本、检查更新与“前往下载”入口
 - 界面文案、错误提示、主进程对话框与悬浮窗文案均支持中英双语
@@ -51,15 +53,16 @@
 
 ### 插件
 
-- 设置页“插件”卡片从独立插件仓库读取 registry，支持安装、启用/停用、常驻/按需、更新与卸载
+- 工作台从独立插件仓库读取 registry，支持安装、启用/停用、常驻/按需、更新、打开与卸载
+- 插件默认不预装；安装下载 ZIP 到用户数据目录，卸载删除插件文件与状态
 - 插件包为 ZIP，包含 `plugin.json` 与 IIFE `main.js`，安装到用户数据目录后由应用加载
 - 常驻插件在启动时预加载，按需插件首次打开时加载；停用或卸载时执行清理
 - 首个示例插件 `bennett.text-stats` 提供字符、单词、行数、字节与阅读时长统计
 - 插件仓库：https://github.com/bennett-0727/bennett-toolbox-plugins
 - 插件在受信渲染进程中运行，安装包使用 SHA-256 校验；仅从插件仓库的 GitHub Release 下载
-- MarkItDown 作为独立组件按需下载，安装包不再内置约 104MB 二进制；设置页插件卡片提供组件状态与下载入口
+- MarkItDown 作为独立组件按需下载，安装包不再内置约 104MB 二进制；工作台提供组件状态与下载入口
 
-![插件与组件管理](docs/screenshots/15-plugins.png)
+![工作台与组件管理](docs/screenshots/15-workbench.png)
 
 ## 版本更新
 
@@ -80,12 +83,15 @@
 - `npx tsc --noEmit` 0 错误
 - `npx vite build` 成功
 - 浏览器 e2e：3/3 通过
-- Electron 打包版功能 e2e：54/54 通过（11 个模块 + 设置页 + 侧边栏 + 主进程 IPC）
+- Electron 打包版功能 e2e：54/54 通过（安装 11 个官方插件后覆盖全部模块 + 设置页 + 侧边栏 + 主进程 IPC）
 - 插件单元测试：6/6 通过
 - 插件安装/加载/停用/更新/安全拒绝/组件下载 e2e：3/3 通过
-- Electron 打包版冒烟 e2e：7/7 通过
+- 浏览器壳层 e2e：3/3 通过（工作台、内嵌设置、语言/主题）
+- Electron 冒烟：空壳与安装 11 个插件两种模式通过
 - `npm run build:electron` 成功
-- 安装包：macOS arm64 dmg 从 231MB 降至 122MB，x64 从 238MB 降至 126MB（1.3.0，MarkItDown 改为按需组件）
+- 安装包：1.3.0 macOS arm64 dmg 231MB → 122MB；2.0.0 工具模块全部移出，应用壳 asar 约 2.9MB，11 个官方插件合计约 1.6MB
+- 文档转换：MarkItDown 改为 onedir 组件并预热，首次安装后单次转换约 1 秒
+- 布局：默认工作台、不自动加载插件；工具占满主画布，设置直接嵌入工作台
 
 ## 快速开始
 
@@ -95,11 +101,13 @@ npm run setup:markitdown  # 可选：准备文档转换器（文档转 MD 需要
 npm run dev              # 前端开发服务器 http://127.0.0.1:5173
 npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
-npm run test:electron    # Electron 功能测试（54 项，需先构建；CI 跳过 7 项屏幕用例）
+npm run test:electron    # Electron 功能测试（54 项；需先构建并准备插件仓库）
 npm run test:unit        # 插件规则单元测试（6 项）
 npm run test:plugins     # 插件安装/加载/安全/组件下载 e2e（3 项，需先构建）
-npm run test:electron:smoke  # Electron 冒烟测试（7 项）
+npm run test:electron:smoke  # Electron 冒烟；设置 BENNETT_PLUGIN_REGISTRY_DIR 时安装 11 个插件
 ```
+
+Electron 测试会自动查找插件仓库：优先 `BENNETT_PLUGIN_REGISTRY_DIR`，其次 `vendor/bennett-toolbox-plugins`，最后同级目录 `../bennett-toolbox-plugins`；找不到 `dist` 时会自动 `npm ci && npm run release`。
 
 对打包产物运行功能测试：
 
@@ -122,7 +130,8 @@ ELECTRON_APP_PATH="$PWD/release/Bennett Toolbox-darwin-arm64/Bennett Toolbox.app
 ├── src/components/Sidebar.tsx
 ├── src/components/SettingsPage.tsx  # 设置页：主题、语言、版本与更新
 ├── src/components/FormatItem.tsx   # 颜色格式复制行
-├── src/modules/              # 11 个工具模块
+├── src/plugins/              # 插件运行时、管理器与 IPC 客户端
+├── src/components/           # 工作台、内嵌设置、侧栏、插件/组件管理
 │   ├── JsonFormatter.tsx
 │   ├── NamingConverter.tsx
 │   ├── ImageConverter.tsx
@@ -190,4 +199,4 @@ npm run package:win   # NSIS exe
 
 1. 渲染进程通过 `ipcRenderer` / `ipcMain` 与主进程通信，通道定义见 `electron/main.ts`。
 2. 当前启用 `nodeIntegration: true`、`contextIsolation: false`，渲染进程可直接使用 `window.require`；请勿加载不可信页面。
-3. MarkItDown：本地执行 `npm run setup:markitdown`；CI 中 macOS arm64 从 Release 资源下载，其他平台用 PyInstaller 构建，打包时通过 `extraResources` 打入应用。
+3. MarkItDown：安装包不再内置，用户在设置页下载组件；开发/测试可使用 `MARKITDOWN_BIN` 或 `npm run setup:markitdown`。CI 构建四平台组件资产并随 Release 发布。

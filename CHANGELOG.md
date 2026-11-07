@@ -2,6 +2,28 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.0.0] - 2026-11-07
+
+### Added
+
+- 11 个内置工具全部迁移为官方插件（`bennett.*`），应用壳只保留设置、插件管理与首次安装引导
+- 首次启动空状态与“安装全部推荐工具”；插件自动刷新 registry
+- 插件 `order` / `recommended` 元数据、安装全部队列与启动时自动排序
+- 插件资产 API（`assets.url`）与 PDF worker 随插件分发
+- 旧模块 ID/顺序/当前模块自动迁移到插件 ID
+- CI 跨仓库构建官方插件并在 Electron 测试中安装全部插件
+- 插件仓库 `plugin-v1.1.0` 发布 12 个插件（11 官方工具 + 文本统计）
+
+### Changed
+
+- 应用包不再包含工具模块代码与 gifenc/pdfjs 依赖；安装包接近 Electron 基线
+- 浏览器测试改为壳层测试；Electron 54 项测试在安装插件后运行
+- 插件主题切换不再 remount，语言切换仍 remount
+- 布局改为 Codex 桌面端式工作区：侧栏 + 顶栏 + 主画布 + 状态栏，默认工作台且不自动加载插件
+- 设置直接嵌入工作台主界面，侧栏不再提供设置入口；插件管理也从设置移入工作台
+- MarkItDown 组件改为 onedir ZIP 并安装后预热，后续文档转换约 1 秒
+- 应用版本提升到 2.0.0
+
 ## [1.3.0] - 2026-11-07
 
 ### Added

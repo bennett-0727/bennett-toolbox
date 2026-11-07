@@ -16,6 +16,8 @@ export interface PluginManifest {
   main: string;
   icon: string;
   activation: PluginActivation;
+  order?: number;
+  recommended?: boolean;
   author?: string;
   homepage?: string;
 }
@@ -55,6 +57,7 @@ export interface PluginOperationResult {
 export interface PluginBundlePayload {
   manifest: PluginManifest;
   code: string;
+  baseUrl: string;
 }
 
 export interface PluginStorage {
@@ -73,6 +76,9 @@ export interface PluginApi {
   onLocaleChange(callback: (locale: "zh-CN" | "en-US") => void): () => void;
   onThemeChange(callback: (theme: string) => void): () => void;
   storage: PluginStorage;
+  assets: {
+    url(relative: string): string;
+  };
   log(...args: unknown[]): void;
 }
 

@@ -11,7 +11,13 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function PluginManagerCard({ language }: { language: Language }) {
+function PluginManagerCard({
+  language,
+  onOpenPlugin,
+}: {
+  language: Language;
+  onOpenPlugin?: (id: string) => void;
+}) {
   const {
     snapshot,
     loading,
@@ -20,6 +26,7 @@ function PluginManagerCard({ language }: { language: Language }) {
     progress,
     refresh,
     install,
+    installAllRecommended,
     update,
     remove,
     setEnabled,
@@ -27,6 +34,14 @@ function PluginManagerCard({ language }: { language: Language }) {
     openFolder,
   } = usePlugins();
   const [localError, setLocalError] = React.useState<string | null>(null);
+  const autoRefreshed = React.useRef(false);
+
+  React.useEffect(() => {
+    if (autoRefreshed.current || loading || busy) return;
+    if (snapshot.available.length > 0 || snapshot.registryUpdatedAt) return;
+    autoRefreshed.current = true;
+    void refresh().catch(() => {});
+  }, [loading, busy, snapshot.available.length, snapshot.registryUpdatedAt, refresh]);
 
   const latestById = React.useMemo(() => {
     const map = new Map<string, RegistryPlugin>();
@@ -41,6 +56,7 @@ function PluginManagerCard({ language }: { language: Language }) {
 
   const installedIds = new Set(snapshot.installed.map((plugin) => plugin.manifest.id));
   const available = [...latestById.values()].filter((plugin) => !installedIds.has(plugin.id));
+  const recommended = available.filter((plugin) => plugin.recommended);
   const disabled = Boolean(busy) || loading;
 
   const run = (operation: () => Promise<void>) => {
@@ -74,6 +90,14 @@ function PluginManagerCard({ language }: { language: Language }) {
           )}
         </div>
         <div className="plugin-actions">
+          {onOpenPlugin && plugin.enabled && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => onOpenPlugin(manifest.id)}
+            >
+              打开
+            </button>
+          )}
           <button
             className="btn btn-secondary btn-sm"
             aria-pressed={plugin.enabled}
@@ -150,6 +174,15 @@ function PluginManagerCard({ language }: { language: Language }) {
         <span className="plugin-registry-time">
           {snapshot.registryUpdatedAt ? `更新于 ${snapshot.registryUpdatedAt}` : "尚未刷新"}
         </span>
+        {recommended.length > 0 && (
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={disabled}
+            onClick={() => run(installAllRecommended)}
+          >
+            安装全部推荐工具
+          </button>
+        )}
         <button
           className="btn btn-secondary btn-sm"
           disabled={disabled}

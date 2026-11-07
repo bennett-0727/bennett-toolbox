@@ -1,19 +1,19 @@
 import * as React from "react";
 import { APP_VERSION } from "../shared/version";
+import WorkbenchIcon from "./WorkbenchIcon";
 import type { ModuleInfo } from "../shared/types";
 
 interface SidebarProps {
   modules: ModuleInfo[];
   activeModule: string;
-  settingsOpen: boolean;
   onModuleSelect: (id: string) => void;
   onModuleReorder: (from: number, to: number) => void;
-  onOpenSettings: () => void;
+  onOpenWorkbench: () => void;
   updateStatus: string;
   onCheckUpdates: () => void;
 }
 
-function Sidebar({ modules, activeModule, settingsOpen, onModuleSelect, onModuleReorder, onOpenSettings, updateStatus, onCheckUpdates }: SidebarProps) {
+function Sidebar({ modules, activeModule, onModuleSelect, onModuleReorder, onOpenWorkbench, updateStatus, onCheckUpdates }: SidebarProps) {
   const [draggingIndex, setDraggingIndex] = React.useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
   const draggedItemRef = React.useRef<HTMLElement | null>(null);
@@ -65,10 +65,23 @@ function Sidebar({ modules, activeModule, settingsOpen, onModuleSelect, onModule
         </div>
       </div>
       <nav className="sidebar-nav">
+        <button
+          type="button"
+          className={`workbench-nav ${activeModule === "" ? "active" : ""}`}
+          onClick={onOpenWorkbench}
+        >
+          <span className="workbench-nav-icon">
+            <WorkbenchIcon />
+          </span>
+          <span>工作台</span>
+        </button>
         <div className="nav-section">
           <span className="nav-section-title">
-            工具 <span className="drag-hint">可拖拽排序</span>
+            工具 {modules.length > 0 && <span className="drag-hint">可拖拽排序</span>}
           </span>
+          {modules.length === 0 ? (
+            <div className="nav-empty">暂无工具</div>
+          ) : (
           <ul className="nav-list">
             {modules.map((module, index) => (
               <li
@@ -84,7 +97,7 @@ function Sidebar({ modules, activeModule, settingsOpen, onModuleSelect, onModule
                 key={module.id}
               >
                 <button
-                  className={`nav-item ${activeModule === module.id && !settingsOpen ? "active" : ""}`}
+                  className={`nav-item ${activeModule === module.id ? "active" : ""}`}
                   onClick={() => onModuleSelect(module.id)}
                 >
                   <span className="drag-handle">⋮⋮</span>
@@ -94,22 +107,10 @@ function Sidebar({ modules, activeModule, settingsOpen, onModuleSelect, onModule
               </li>
             ))}
           </ul>
+          )}
         </div>
       </nav>
       <div className="sidebar-footer">
-        <button
-          type="button"
-          className={`settings-button ${settingsOpen ? "active" : ""}`}
-          onClick={onOpenSettings}
-          title="设置"
-          aria-pressed={settingsOpen}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
-          </svg>
-          <span>设置</span>
-        </button>
         <button
           className={`version version-button ${updateStatus === "available" ? "has-update" : ""}`}
           onClick={onCheckUpdates}

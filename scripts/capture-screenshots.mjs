@@ -1,6 +1,8 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { _electron as electron } from "playwright-core";
+import { preparePluginRegistry } from "../tests/helpers/plugin-fixtures.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const FIX = path.join(ROOT, "tests/fixtures");
@@ -20,36 +22,53 @@ fs.writeFileSync(path.join(DEMO, "search/sub/report-draft.md"), "nested report\n
 const thumbPng = `data:image/png;base64,${fs.readFileSync(path.join(FIX, "images/photo.png")).toString("base64")}`;
 const thumbJpg = `data:image/jpeg;base64,${fs.readFileSync(path.join(FIX, "images/picture.jpg")).toString("base64")}`;
 
+const registryDir = preparePluginRegistry();
+const userData = fs.mkdtempSync(path.join(os.tmpdir(), "bennett-screenshots-user-"));
 const app = await electron.launch({
   executablePath: APP,
-  env: { ...process.env, MARKITDOWN_BIN: path.join(FIX, "markitdown/markitdown.sh") },
+  args: [`--user-data-dir=${userData}`],
+  env: {
+    ...process.env,
+    MARKITDOWN_BIN: path.join(FIX, "markitdown/markitdown.sh"),
+    BENNETT_USER_DATA_DIR: userData,
+    BENNETT_PLUGIN_REGISTRY_DIR: registryDir,
+  },
 });
 const page = await app.firstWindow();
 await page.waitForLoadState("domcontentloaded");
+await page.evaluate(async () => {
+  const ipc = window.require("electron").ipcRenderer;
+  const refreshed = await ipc.invoke("plugins:refresh-registry");
+  if (!refreshed?.ok) throw new Error(refreshed?.error || "refresh failed");
+  const recommended = refreshed.snapshot.available
+    .filter((plugin) => plugin.recommended)
+    .sort((left, right) => (left.order ?? 1000) - (right.order ?? 1000));
+  for (const plugin of recommended) {
+    const result = await ipc.invoke("plugins:install", { id: plugin.id });
+    if (!result?.ok) throw new Error(result?.error || `install failed: ${plugin.id}`);
+  }
+});
+await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 11);
 
 async function setLanguage(label, value) {
-  await page.locator(".settings-button").click();
-  await page.waitForSelector(".settings-page");
+  await page.locator(".workbench-nav").click();
+  await page.waitForSelector(".settings-embedded");
   await page.locator(".language-option", { hasText: label }).click();
   await page.waitForFunction((next) => document.documentElement.lang === next, value);
-  await page.locator(".settings-back").click();
-  await page.waitForSelector(".settings-page", { state: "detached" });
 }
 
 async function setTheme(value) {
-  await page.locator(".settings-button").click();
-  await page.waitForSelector(".settings-page");
+  await page.locator(".workbench-nav").click();
+  await page.waitForSelector(".settings-embedded");
   await page.locator(".theme-option").nth(value === "glass-light" ? 1 : 0).click();
   await page.waitForFunction(
     (next) => document.documentElement.dataset.theme === next,
     value,
   );
   await page.waitForTimeout(300);
-  await page.locator(".settings-back").click();
-  await page.waitForSelector(".settings-page", { state: "detached" });
 }
 
-await page.waitForSelector(".settings-button");
+await page.waitForSelector(".workbench-nav");
 await setLanguage("中文", "zh-CN");
 await setTheme("glass-dark");
 await page.waitForTimeout(250);
@@ -198,24 +217,27 @@ await page.waitForFunction(
 );
 await shot("12-color-picker.png");
 
-await openModule("JSON 格式化");
-await page.locator(".settings-button").click();
-await page.waitForSelector(".settings-page");
+await page.locator(".workbench-nav").click();
+await page.waitForSelector(".workbench-page");
 await page.locator(".theme-option").nth(1).click();
 await page.waitForFunction(() => document.documentElement.dataset.theme === "glass-light");
 await page.waitForTimeout(350);
+await page.evaluate(() => {
+  document.querySelector(".workbench-settings-section")?.scrollIntoView({ block: "start" });
+});
+await page.waitForTimeout(250);
 await shot("14-settings.png");
 await page.evaluate(() => {
-  for (const selector of [".main-content", ".settings-page", ".settings-page-body"]) {
+  for (const selector of [".canvas-content", ".main-content"]) {
     const element = document.querySelector(selector);
-    if (element) element.scrollTop = element.scrollHeight;
+    if (element) element.scrollTop = 0;
   }
 });
-await page.waitForTimeout(350);
-await shot("15-plugins.png");
-await page.locator(".settings-back").click();
-await page.waitForSelector(".settings-page", { state: "detached" });
+await page.waitForTimeout(250);
+await shot("15-workbench.png");
+await openModule("JSON 格式化");
 await shot("13-overview-light.png");
 await setTheme("glass-dark");
 
 await app.close();
+fs.rmSync(userData, { recursive: true, force: true });

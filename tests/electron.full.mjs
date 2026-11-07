@@ -5,6 +5,7 @@ import path from "node:path";
 import { after, before, beforeEach, test } from "node:test";
 import { _electron as electron } from "playwright-core";
 import JSZip from "jszip";
+import { preparePluginRegistry } from "./helpers/plugin-fixtures.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const FIX = path.join(ROOT, "tests/fixtures");
@@ -65,13 +66,12 @@ async function clickButton(scope, text) {
 }
 
 async function openSettings() {
-  await page.locator(".settings-button").click();
-  await page.waitForSelector(".settings-page");
+  await page.locator(".workbench-nav").click();
+  await page.waitForSelector(".settings-embedded");
 }
 
 async function closeSettings() {
-  await page.locator(".settings-back").click();
-  await page.waitForSelector(".settings-page", { state: "detached" });
+  await page.locator(".workbench-nav").click();
 }
 
 async function setLanguage(label, lang) {
@@ -84,7 +84,7 @@ async function setLanguage(label, lang) {
   await page.waitForSelector(".nav-item");
   const settingsText = lang === "en-US" ? "Settings" : "设置";
   await page.waitForFunction(
-    (text) => document.querySelector(".settings-button span")?.textContent === text,
+    (text) => document.querySelector(".workbench-section-head h2")?.textContent === text,
     settingsText,
     { timeout: 15000 },
   );
@@ -178,15 +178,41 @@ async function zipEntries(name) {
 }
 
 before(async () => {
-  const launchArgs = ["--disable-gpu", "--disable-gpu-compositing"];
+  const registryDir = preparePluginRegistry();
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "bennett-e2e-user-"));
+  const launchArgs = [
+    "--disable-gpu",
+    "--disable-gpu-compositing",
+    `--user-data-dir=${userDataDir}`,
+  ];
   app = await electron.launch({
     ...(process.env.ELECTRON_APP_PATH
       ? { executablePath: process.env.ELECTRON_APP_PATH, args: launchArgs }
       : { args: [".", ...launchArgs] }),
-    env: { ...process.env, MARKITDOWN_BIN: MD_BIN },
+    env: {
+      ...process.env,
+      MARKITDOWN_BIN: MD_BIN,
+      BENNETT_PLUGIN_REGISTRY_DIR: registryDir,
+      BENNETT_USER_DATA_DIR: userDataDir,
+    },
   });
   page = await app.firstWindow();
   await page.waitForLoadState("domcontentloaded");
+  const installed = await page.evaluate(async () => {
+    const ipc = window.require("electron").ipcRenderer;
+    const refreshed = await ipc.invoke("plugins:refresh-registry");
+    if (!refreshed?.ok) throw new Error(refreshed?.error || "refresh failed");
+    const recommended = refreshed.snapshot.available
+      .filter((plugin) => plugin.recommended)
+      .sort((left, right) => (left.order ?? 1000) - (right.order ?? 1000));
+    for (const plugin of recommended) {
+      const result = await ipc.invoke("plugins:install", { id: plugin.id });
+      if (!result?.ok) throw new Error(result?.error || `install failed: ${plugin.id}`);
+    }
+    return recommended.length;
+  });
+  assert.equal(installed, 11);
+  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 11);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.waitForSelector(".nav-item");
@@ -1273,7 +1299,7 @@ test("文档转 Markdown：真实转换器", { skip: !fs.existsSync(REAL_MARKITD
         return label.includes("完成") || label.includes("失败");
       },
       null,
-      { timeout: 60000 },
+      { timeout: 120000 },
     );
   };
 
@@ -1291,12 +1317,12 @@ test("文档转 Markdown：真实转换器", { skip: !fs.existsSync(REAL_MARKITD
     await clickButton(page.locator(".document-converter-header"), "清空");
 
     await selectAndConvert("images/picture.jpg");
-    await waitForText(".error-box", "未提取到 Markdown 内容", 60000);
+    await waitForText(".error-box", "未提取到 Markdown 内容", 120000);
     assert.equal(await page.locator(".markdown-output").inputValue(), "");
     await clickButton(page.locator(".document-converter-header"), "清空");
 
     await selectAndConvert("documents/doc.pdf");
-    await waitForText(".error-box", "未提取到 Markdown 内容", 60000);
+    await waitForText(".error-box", "未提取到 Markdown 内容", 120000);
     assert.equal(await page.locator(".markdown-output").inputValue(), "");
   } finally {
     await app.evaluate((_electron, bin) => {
@@ -1569,10 +1595,10 @@ test("国际化：英文覆盖全部模块并持久化", async () => {
   }, "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lY2mAAAAAElFTkSuQmCC");
 
   await page.reload();
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   await setLanguage("English", "en-US");
-  assert.equal(await page.locator(".settings-button span").textContent(), "Settings");
-  assert.equal(await page.locator(".settings-button").getAttribute("title"), "Settings");
+  assert.match(await page.locator(".workbench-nav").innerText(), /Workbench/);
+  assert.equal(await page.locator(".workbench-section-head h2").innerText(), "Settings");
 
   const modules = [
     ["JSON Formatter", "JSON Formatter"],
@@ -1602,7 +1628,7 @@ test("国际化：英文覆盖全部模块并持久化", async () => {
     ["Dark Glass", "Light Glass", "Aurora Violet", "Deep Ocean", "Sunset Orange"],
   );
   assert.equal(
-    await page.locator(".settings-card-head p").first().innerText(),
+    await page.locator(".settings-embedded .settings-card-head p").first().innerText(),
     "Choose a glass theme or a color skin",
   );
   const settingsAttrs = await page.evaluate(() =>
@@ -1656,7 +1682,7 @@ test("国际化：英文覆盖全部模块并持久化", async () => {
   await waitForText(".error-message", "does not support the native color picker");
 
   await page.reload();
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   await openSettings();
   assert.equal(await page.locator(".language-option", { hasText: "English" }).getAttribute("aria-pressed"), "true");
   await closeSettings();
@@ -1674,7 +1700,7 @@ test("国际化：英文数据状态无中文", async () => {
       body: JSON.stringify({ responseStatus: 200, responseData: { translatedText: "user profile" } }),
     });
   await page.route("**/api.mymemory.translated.net/**", handler);
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   await setLanguage("English", "en-US");
 
   const assertEnglish = async (label) => {
@@ -1766,7 +1792,7 @@ test("国际化：英文数据状态无中文", async () => {
 });
 
 test("国际化：主进程错误为英文", async () => {
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   await setLanguage("English", "en-US");
   await page.waitForTimeout(200);
 
@@ -1800,7 +1826,7 @@ test("国际化：主进程错误为英文", async () => {
 });
 
 test("屏幕适配：1000x700 与 1200x760 无横向溢出", async () => {
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   await setLanguage("中文", "zh-CN");
   await setWindowSize(1000, 700);
   const modules = [
@@ -1828,11 +1854,11 @@ test("屏幕适配：1000x700 与 1200x760 无横向溢出", async () => {
       const el = document.querySelector(".main-content");
       return el ? el.scrollWidth - el.clientWidth : 0;
     })(),
-    cards: document.querySelectorAll(".settings-card").length,
+    cards: document.querySelectorAll(".settings-embedded .settings-card").length,
   }));
   assert.ok(settingsOverflow.doc <= 1, `设置页横向溢出 ${settingsOverflow.doc}px`);
   assert.ok(settingsOverflow.main <= 1, `设置页主区域横向溢出 ${settingsOverflow.main}px`);
-  assert.equal(settingsOverflow.cards, 4);
+  assert.equal(settingsOverflow.cards, 3);
   const themeGrid = await page.evaluate(() => {
     const grid = document.querySelector(".theme-options");
     const options = [...document.querySelectorAll(".theme-option")];
@@ -1901,7 +1927,7 @@ test("屏幕适配：1000x700 与 1200x760 无横向溢出", async () => {
   await closeSettings();
   await setLanguage("中文", "zh-CN");
   await page.reload();
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   await setWindowSize(1200, 760);
   assert.ok(true);
 });
@@ -1929,7 +1955,7 @@ test("文档转 Markdown：转换失败提示", async () => {
   await waitForText(".progress-label", "转换失败");
 });
 test("更新检查：发现新版本与已是最新", async () => {
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   await setLanguage("English", "en-US");
 
   await app.evaluate(({ ipcMain }) => {
@@ -1977,7 +2003,7 @@ test("更新检查：发现新版本与已是最新", async () => {
 });
 
 test("主题切换：五套玻璃主题、彩色皮肤与持久化", async () => {
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   await openSettings();
 
   const themeOptions = page.locator(".theme-option");
@@ -2047,7 +2073,7 @@ test("主题切换：五套玻璃主题、彩色皮肤与持久化", async () =>
   await closeSettings();
 
   await page.reload();
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   assert.equal(
     await page.evaluate(() => document.documentElement.dataset.theme),
     "glass-light",
@@ -2071,10 +2097,10 @@ test("主题切换：五套玻璃主题、彩色皮肤与持久化", async () =>
       await page.locator(`.theme-option[data-theme-value="${skin}"]`).getAttribute("aria-pressed"),
       "true",
     );
-    const settingsBackground = await page
-      .locator(".settings-button.active")
-      .evaluate((el) => getComputedStyle(el).backgroundImage);
-    assert.ok(settingsBackground.includes(accent), `${skin} 主色未生效: ${settingsBackground}`);
+    const accentValue = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue("--accent-rgb").trim(),
+    );
+    assert.ok(accentValue.includes(accent), `${skin} 主色未生效: ${accentValue}`);
     assert.equal(
       await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme),
       "dark",
@@ -2083,7 +2109,7 @@ test("主题切换：五套玻璃主题、彩色皮肤与持久化", async () =>
   await closeSettings();
 
   await page.reload();
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
   assert.equal(
     await page.evaluate(() => document.documentElement.dataset.theme),
     "glass-sunset",

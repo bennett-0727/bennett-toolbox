@@ -23,6 +23,7 @@ interface PluginsContextValue {
   progress: Record<string, PluginInstallProgress>;
   refresh: () => Promise<void>;
   install: (id: string) => Promise<void>;
+  installAllRecommended: () => Promise<void>;
   update: (id: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   setEnabled: (id: string, enabled: boolean) => Promise<void>;
@@ -126,6 +127,29 @@ export function PluginsProvider({ children }: { children: React.ReactNode }) {
       progress,
       refresh: async () => run("registry", refreshRegistry),
       install: async (id) => run(id, () => installPlugin(id)),
+      installAllRecommended: async () => {
+        const targets = snapshot.available
+          .filter(
+            (plugin) =>
+              plugin.recommended &&
+              !snapshot.installed.some((installed) => installed.manifest.id === plugin.id),
+          )
+          .slice()
+          .sort((left, right) => (left.order ?? 1000) - (right.order ?? 1000));
+        if (targets.length === 0) return;
+        setBusy("all");
+        setError(null);
+        try {
+          for (const plugin of targets) {
+            applySnapshot(await installPlugin(plugin.id));
+          }
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : String(reason));
+          throw reason;
+        } finally {
+          setBusy(null);
+        }
+      },
       update: async (id) => run(id, () => updatePlugin(id)),
       remove: async (id) => run(id, () => removePlugin(id)),
       setEnabled: async (id, enabled) => run(id, () => setPluginEnabled(id, enabled)),

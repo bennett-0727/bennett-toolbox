@@ -84,13 +84,13 @@ before(async () => {
 
   const componentDir = path.join(tempDir, "component");
   fs.mkdirSync(componentDir, { recursive: true });
-  const asset =
-    process.platform === "win32"
-      ? `markitdown-win32-${process.arch}.exe`
-      : `markitdown-${process.platform}-${process.arch}`;
+  const asset = `markitdown-${process.platform}-${process.arch}.zip`;
   const binary = process.platform === "win32" ? "fake" : "#!/bin/sh\necho hello component\n";
-  fs.writeFileSync(path.join(componentDir, asset), binary);
-  const hash = crypto.createHash("sha256").update(binary).digest("hex");
+  const componentZip = new JSZip();
+  componentZip.file(process.platform === "win32" ? "markitdown.exe" : "markitdown", binary);
+  const zipBuffer = await componentZip.generateAsync({ type: "nodebuffer" });
+  fs.writeFileSync(path.join(componentDir, asset), zipBuffer);
+  const hash = crypto.createHash("sha256").update(zipBuffer).digest("hex");
   fs.writeFileSync(path.join(componentDir, `${asset}.sha256`), `${hash}  ${asset}\n`);
   componentServer = http.createServer((request, response) => {
     const name = path.basename(request.url || "");
@@ -117,11 +117,12 @@ before(async () => {
       ...process.env,
       BENNETT_PLUGIN_REGISTRY_DIR: registryDir,
       BENNETT_MARKITDOWN_COMPONENT_BASE_URL: componentBaseUrl,
+      BENNETT_USER_DATA_DIR: userData,
     },
   });
   page = await app.firstWindow();
   page.on("pageerror", (error) => console.error("PAGEERROR", error.message));
-  await page.waitForSelector(".settings-button");
+  await page.waitForSelector(".workbench-nav");
 });
 
 after(async () => {
@@ -131,33 +132,32 @@ after(async () => {
 });
 
 test("插件安装、加载、停用、常驻、更新和卸载", async () => {
-  await page.locator(".settings-button").click();
-  await page.waitForSelector(".settings-card.plugins");
+  await page.waitForSelector(".plugin-manager");
   await page.getByRole("button", { name: "刷新插件列表" }).click();
   const availableRow = page.locator(".plugin-row").filter({ hasText: "文本统计" });
   await availableRow.waitFor();
   assert.match(await availableRow.innerText(), /文本统计/);
 
   await page.getByRole("button", { name: "安装", exact: true }).click();
-  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 12);
+  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 1);
   assert.ok((await page.locator(".nav-label").allTextContents()).includes("文本统计"));
 
   await page.reload();
-  await page.waitForSelector(".settings-button");
-  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 12);
+  await page.waitForSelector(".workbench-nav");
+  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 1);
   await page.getByRole("button", { name: "文本统计" }).click();
   await page.waitForSelector(".fixture-plugin");
   assert.equal(await page.locator(".fixture-plugin").textContent(), "示例插件");
+  await page.locator(".workbench-nav").click();
 
-  await page.locator(".settings-button").click();
-  await page.waitForSelector(".settings-card.plugins");
+  await page.waitForSelector(".plugin-manager");
   const installedRow = page.locator(".plugin-row").filter({ hasText: "文本统计" });
   await installedRow.waitFor();
   assert.match(await installedRow.innerText(), /已启用/);
   await installedRow.getByRole("button", { name: "停用", exact: true }).click();
-  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 11);
+  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 0);
   await page.getByRole("button", { name: "启用", exact: true }).click();
-  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 12);
+  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 1);
   await page.getByRole("button", { name: "设为常驻", exact: true }).click();
   await page.waitForSelector('.plugin-actions button:has-text("改为按需")');
 
@@ -169,7 +169,7 @@ test("插件安装、加载、停用、常驻、更新和卸载", async () => {
     [...document.querySelectorAll(".plugin-meta")].some((el) => el.textContent?.includes("v1.0.1")),
   );
   await page.getByRole("button", { name: "卸载", exact: true }).click();
-  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 11);
+  await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 0);
 });
 
 test("拒绝校验和不匹配与版本不兼容的插件", async () => {
@@ -204,8 +204,7 @@ test("拒绝校验和不匹配与版本不兼容的插件", async () => {
       },
     },
   ]);
-  await page.locator(".settings-button").click();
-  await page.waitForSelector(".settings-card.plugins");
+  await page.waitForSelector(".plugin-manager");
   await page.getByRole("button", { name: "刷新插件列表" }).click();
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".plugin-row")].some((el) =>
@@ -222,12 +221,11 @@ test("拒绝校验和不匹配与版本不兼容的插件", async () => {
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".plugin-error")].some((el) => el.textContent?.includes("99.0.0")),
   );
-  assert.equal(await page.locator(".nav-item").count(), 11);
+  assert.equal(await page.locator(".nav-item").count(), 0);
 });
 
 test("下载 MarkItDown 组件并显示已安装", async () => {
-  await page.locator(".settings-button").click();
-  await page.waitForSelector(".settings-card.plugins");
+  await page.waitForSelector(".plugin-manager");
   const component = page.locator(".plugin-row").filter({ hasText: "文档转换组件" });
   await component.waitFor();
   assert.match(await component.innerText(), /未安装/);

@@ -74,6 +74,11 @@ export function validateManifest(raw: unknown): PluginManifest {
     main: relativeEntry(source.main),
     icon: icon.trim(),
     activation: activation as PluginActivation,
+    order:
+      typeof source.order === "number" && Number.isFinite(source.order)
+        ? source.order
+        : undefined,
+    recommended: source.recommended === true ? true : undefined,
     author: typeof source.author === "string" ? source.author : undefined,
     homepage: typeof source.homepage === "string" ? source.homepage : undefined,
   };

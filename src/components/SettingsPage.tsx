@@ -2,7 +2,6 @@ import * as React from "react";
 import { LANGUAGES, type Language } from "../i18n";
 import type { Theme } from "../theme";
 import { APP_VERSION } from "../shared/version";
-import PluginManagerCard from "./PluginManagerCard";
 
 interface SettingsPageProps {
   language: Language;
@@ -13,7 +12,8 @@ interface SettingsPageProps {
   onThemeChange: (theme: Theme) => void;
   onCheckUpdates: () => void;
   onOpenUpdate: () => void;
-  onClose: () => void;
+  onClose?: () => void;
+  embedded?: boolean;
 }
 
 const THEMES: Array<{ value: Theme; label: string }> = [
@@ -34,6 +34,7 @@ function SettingsPage({
   onCheckUpdates,
   onOpenUpdate,
   onClose,
+  embedded = false,
 }: SettingsPageProps) {
   const updateText =
     updateStatus === "checking"
@@ -46,6 +47,81 @@ function SettingsPage({
             ? "检查更新失败"
             : "";
 
+  const cards = (
+    <div className="settings-page-body">
+      <section className="settings-card">
+        <div className="settings-card-head">
+          <h2>外观</h2>
+          <p>选择玻璃主题或彩色皮肤</p>
+        </div>
+        <div className="theme-options">
+          {THEMES.map((item) => (
+            <button
+              type="button"
+              key={item.value}
+              data-theme-value={item.value}
+              className={`theme-option ${theme === item.value ? "active" : ""}`}
+              aria-pressed={theme === item.value}
+              onClick={() => onThemeChange(item.value)}
+            >
+              <span className={`theme-preview ${item.value}`}>
+                <span className="theme-preview-sidebar" />
+                <span className="theme-preview-panel" />
+              </span>
+              <span className="theme-option-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="settings-card">
+        <div className="settings-card-head">
+          <h2>语言</h2>
+          <p>选择界面语言</p>
+        </div>
+        <div className="language-options">
+          {LANGUAGES.map((item) => (
+            <button
+              type="button"
+              key={item.value}
+              className={`language-option ${language === item.value ? "active" : ""}`}
+              aria-pressed={language === item.value}
+              onClick={() => onLanguageChange(item.value)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="settings-card updates">
+        <div className="settings-card-head">
+          <h2>版本与更新</h2>
+          <p>从 GitHub Releases 检测新版本</p>
+        </div>
+        <div className="settings-version-row">
+          <span>当前版本</span>
+          <strong>v{APP_VERSION}</strong>
+        </div>
+        <div className="settings-update-row">
+          <button className="btn btn-secondary" onClick={onCheckUpdates}>
+            检查更新
+          </button>
+          {updateStatus === "available" ? (
+            <button className="btn btn-primary" onClick={onOpenUpdate}>
+              前往下载
+            </button>
+          ) : null}
+          <span className={`settings-update-status ${updateStatus}`}>{updateText}</span>
+        </div>
+      </section>
+    </div>
+  );
+
+  if (embedded) {
+    return <div className="settings-embedded">{cards}</div>;
+  }
+
   return (
     <div className="settings-page">
       <div className="settings-page-header">
@@ -56,83 +132,7 @@ function SettingsPage({
           </button>
         </div>
       </div>
-
-      <div className="settings-page-body">
-        <section className="settings-card">
-          <div className="settings-card-head">
-            <h2>外观</h2>
-            <p>选择玻璃主题或彩色皮肤</p>
-          </div>
-          <div className="theme-options">
-            {THEMES.map((item) => (
-              <button
-                type="button"
-                key={item.value}
-                data-theme-value={item.value}
-                className={`theme-option ${theme === item.value ? "active" : ""}`}
-                aria-pressed={theme === item.value}
-                onClick={() => onThemeChange(item.value)}
-              >
-                <span className={`theme-preview ${item.value}`}>
-                  <span className="theme-preview-sidebar" />
-                  <span className="theme-preview-panel" />
-                </span>
-                <span className="theme-option-label">{item.label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="settings-card">
-          <div className="settings-card-head">
-            <h2>语言</h2>
-            <p>选择界面语言</p>
-          </div>
-          <div className="language-options">
-            {LANGUAGES.map((item) => (
-              <button
-                type="button"
-                key={item.value}
-                className={`language-option ${language === item.value ? "active" : ""}`}
-                aria-pressed={language === item.value}
-                onClick={() => onLanguageChange(item.value)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="settings-card plugins">
-          <div className="settings-card-head">
-            <h2>插件</h2>
-            <p>按需安装扩展工具</p>
-          </div>
-          <PluginManagerCard language={language} />
-        </section>
-
-        <section className="settings-card updates">
-          <div className="settings-card-head">
-            <h2>版本与更新</h2>
-            <p>从 GitHub Releases 检测新版本</p>
-          </div>
-          <div className="settings-version-row">
-            <span>当前版本</span>
-            <strong>v{APP_VERSION}</strong>
-          </div>
-          <div className="settings-update-row">
-            <button className="btn btn-secondary" onClick={onCheckUpdates}>
-              检查更新
-            </button>
-            {updateStatus === "available" ? (
-              <button className="btn btn-primary" onClick={onOpenUpdate}>
-                前往下载
-              </button>
-            ) : null}
-            <span className={`settings-update-status ${updateStatus}`}>{updateText}</span>
-          </div>
-        </section>
-      </div>
+      {cards}
     </div>
   );
 }

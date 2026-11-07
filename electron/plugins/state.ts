@@ -51,17 +51,24 @@ export async function readPluginState(): Promise<PluginState> {
   }
 }
 
-export async function writePluginState(state: PluginState): Promise<void> {
-  const target = pluginsStatePath();
-  await fs.promises.mkdir(pluginsRoot(), { recursive: true });
-  const temp = `${target}.${process.pid}.tmp`;
-  await fs.promises.writeFile(temp, JSON.stringify(state, null, 2), "utf8");
-  try {
-    await fs.promises.rename(temp, target);
-  } catch {
-    await fs.promises.rm(target, { force: true }).catch(() => {});
-    await fs.promises.rename(temp, target);
-  }
+let stateWriteQueue: Promise<void> = Promise.resolve();
+
+export function writePluginState(state: PluginState): Promise<void> {
+  const write = async () => {
+    const target = pluginsStatePath();
+    await fs.promises.mkdir(pluginsRoot(), { recursive: true });
+    const temp = `${target}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
+    await fs.promises.writeFile(temp, JSON.stringify(state, null, 2), "utf8");
+    try {
+      await fs.promises.rename(temp, target);
+    } catch {
+      await fs.promises.rm(target, { force: true }).catch(() => {});
+      await fs.promises.rename(temp, target);
+    }
+  };
+  const next = stateWriteQueue.then(write, write);
+  stateWriteQueue = next.catch(() => {});
+  return next;
 }
 
 export async function updatePluginState(

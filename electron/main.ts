@@ -9,6 +9,10 @@ import { cleanupPluginStaging } from "./plugins/state";
 import { compareVersions } from "./plugins/version";
 import { markitdownComponentPath, registerComponentIpc } from "./components";
 
+if (process.env.BENNETT_USER_DATA_DIR) {
+  electron.app.setPath("userData", process.env.BENNETT_USER_DATA_DIR);
+}
+
 if (process.env.E2E_DISABLE_GPU === "1") {
   electron.app.disableHardwareAcceleration();
   electron.app.commandLine.appendSwitch("disable-gpu");
@@ -136,8 +140,16 @@ const closeSecondaryWindows = () => {
   floatingWindows.clear();
 };
 const runMarkitdown = (Q, D) => new Promise((o, s) => {
+  const env = { ...process.env };
+  const internal = path.join(path.dirname(Q.command), "_internal");
+  if (process.platform === "darwin" && fs.existsSync(internal)) {
+    env.DYLD_LIBRARY_PATH = env.DYLD_LIBRARY_PATH
+      ? `${internal}:${env.DYLD_LIBRARY_PATH}`
+      : internal;
+  }
   const N = childProcess.spawn(Q.command, [...Q.argsPrefix, D], {
-    windowsHide: true
+    windowsHide: true,
+    env
   });
   let a = "";
   let R = "";

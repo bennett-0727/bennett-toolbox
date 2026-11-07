@@ -3,53 +3,48 @@ import Sidebar from "./components/Sidebar";
 import type { ModuleInfo } from "./shared/types";
 import { applyLanguage, getInitialLanguage, type Language } from "./i18n";
 import { applyTheme, getInitialTheme, type Theme } from "./theme";
-import SettingsPage from "./components/SettingsPage";
+import Workbench from "./components/Workbench";
+import WorkbenchIcon from "./components/WorkbenchIcon";
 import PluginHost from "./plugins/PluginHost";
 import { usePlugins } from "./plugins/PluginsContext";
 import { syncPluginLocale, syncPluginTheme } from "./plugins/runtime";
-import JsonFormatter from "./modules/JsonFormatter";
-import NamingConverter from "./modules/NamingConverter";
-import ImageConverter from "./modules/ImageConverter";
-import ImageCompressor from "./modules/ImageCompressor";
-import WatermarkRemoval from "./modules/WatermarkRemoval";
-import PdfToImages from "./modules/PdfToImages";
-import VideoToGif from "./modules/VideoToGif";
-import FileSearch from "./modules/FileSearch";
-import DocumentConverter from "./modules/DocumentConverter";
-import ScreenshotFloat from "./modules/ScreenshotFloat";
-import ColorPicker from "./modules/ColorPicker";
-
-const MODULES: ModuleInfo[] = [
-  { id: "json-formatter", name: "JSON 格式化", icon: "{ }", source: "builtin" },
-  { id: "translate-naming", name: "变量命名", icon: "Aa" },
-  { id: "image-converter", name: "图片转换", icon: "🖼️" },
-  { id: "image-compressor", name: "图片压缩", icon: "ZIP" },
-  { id: "watermark-removal", name: "图片去水印", icon: "WM" },
-  { id: "pdf-to-images", name: "PDF 转图片", icon: "PDF" },
-  { id: "video-to-gif", name: "视频转 GIF", icon: "GIF" },
-  { id: "file-search", name: "文件搜索", icon: "🔍" },
-  { id: "document-converter", name: "文档转 MD", icon: "MD" },
-  { id: "screenshot-float", name: "截图悬浮", icon: "📌" },
-  { id: "color-picker", name: "屏幕取色", icon: "🎨" },
-];
+import { APP_VERSION } from "./shared/version";
 
 const MODULE_ORDER_KEY = "bennett-module-order";
 
+const LEGACY_MODULE_IDS: Record<string, string> = {
+  "json-formatter": "bennett.json-formatter",
+  "translate-naming": "bennett.translate-naming",
+  "image-converter": "bennett.image-converter",
+  "image-compressor": "bennett.image-compressor",
+  "watermark-removal": "bennett.watermark-removal",
+  "pdf-to-images": "bennett.pdf-to-images",
+  "video-to-gif": "bennett.video-to-gif",
+  "file-search": "bennett.file-search",
+  "document-converter": "bennett.document-converter",
+  "screenshot-float": "bennett.screenshot-float",
+  "color-picker": "bennett.color-picker",
+};
+
+function migrateModuleId(id: string): string {
+  return LEGACY_MODULE_IDS[id] || id;
+}
+
 function loadModuleOrder(): string[] {
-  const builtinIds = MODULES.map((module) => module.id);
   try {
     const saved = localStorage.getItem(MODULE_ORDER_KEY);
     if (saved) {
-      const savedIds = JSON.parse(saved);
-      if (Array.isArray(savedIds)) {
-        const ordered = savedIds.filter((id): id is string => typeof id === "string");
-        return [...ordered, ...builtinIds.filter((id) => !ordered.includes(id))];
+      const ids = JSON.parse(saved);
+      if (Array.isArray(ids)) {
+        return ids
+          .filter((id): id is string => typeof id === "string")
+          .map(migrateModuleId);
       }
     }
   } catch (error) {
     console.error("加载模块顺序失败:", error);
   }
-  return builtinIds;
+  return [];
 }
 
 type UpdateStatus = "idle" | "checking" | "latest" | "available" | "error";
@@ -57,8 +52,7 @@ type UpdateStatus = "idle" | "checking" | "latest" | "available" | "error";
 function App() {
   const { snapshot } = usePlugins();
   const [moduleOrder, setModuleOrder] = React.useState<string[]>(loadModuleOrder);
-  const [activeModuleId, setActiveModuleId] = React.useState("json-formatter");
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [activeModuleId, setActiveModuleId] = React.useState("");
   const [language, setLanguageState] = React.useState<Language>(getInitialLanguage);
   const [theme, setThemeState] = React.useState<Theme>(getInitialTheme);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
@@ -69,6 +63,8 @@ function App() {
     () =>
       snapshot.installed
         .filter((plugin) => plugin.enabled)
+        .slice()
+        .sort((left, right) => (left.manifest.order ?? 1000) - (right.manifest.order ?? 1000))
         .map((plugin) => ({
           id: plugin.manifest.id,
           name: plugin.manifest.name[language],
@@ -80,24 +76,18 @@ function App() {
   );
 
   const modules = React.useMemo(() => {
-    const byId = new Map<string, ModuleInfo>();
-    for (const module of MODULES) byId.set(module.id, module);
-    for (const module of pluginModules) byId.set(module.id, module);
+    const byId = new Map(pluginModules.map((module) => [module.id, module]));
     return moduleOrder
       .map((id) => byId.get(id))
       .filter((module): module is ModuleInfo => Boolean(module));
   }, [moduleOrder, pluginModules]);
 
   React.useEffect(() => {
+    if (pluginModules.length === 0) return;
     setModuleOrder((previous) => {
-      const builtinIds = MODULES.map((module) => module.id);
-      const known = new Set([...builtinIds, ...pluginModules.map((module) => module.id)]);
-      const next = previous.filter((id) => known.has(id));
+      const next = [...previous];
       for (const module of pluginModules) {
         if (!next.includes(module.id)) next.push(module.id);
-      }
-      for (const id of builtinIds) {
-        if (!next.includes(id)) next.push(id);
       }
       return next.length === previous.length && next.every((id, index) => id === previous[index])
         ? previous
@@ -106,18 +96,22 @@ function App() {
   }, [pluginModules]);
 
   React.useEffect(() => {
-    if (!modules.some((module) => module.id === activeModuleId)) {
-      setActiveModuleId(modules[0]?.id || "json-formatter");
+    if (activeModuleId && !modules.some((module) => module.id === activeModuleId)) {
+      setActiveModuleId("");
     }
   }, [modules, activeModuleId]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(MODULE_ORDER_KEY, JSON.stringify(moduleOrder));
+    } catch {}
+  }, [moduleOrder]);
 
   const checkUpdates = React.useCallback(async (manual: boolean) => {
     if (typeof window === "undefined" || typeof window.require !== "function") return;
     setUpdateStatus("checking");
     try {
-      const result = await window
-        .require("electron")
-        .ipcRenderer.invoke("check-updates");
+      const result = await window.require("electron").ipcRenderer.invoke("check-updates");
       if (result?.hasUpdate) {
         setUpdateVersion(result.latestVersion || "");
         setUpdateUrl(result.url || "");
@@ -135,7 +129,6 @@ function App() {
   }, [checkUpdates]);
 
   const dismissUpdate = React.useCallback(() => setUpdateStatus("idle"), []);
-
   const openUpdate = React.useCallback(() => {
     if (updateUrl && typeof window !== "undefined" && typeof window.require === "function") {
       window.require("electron").ipcRenderer.invoke("open-external", updateUrl);
@@ -168,107 +161,84 @@ function App() {
     setLanguageState(next);
   }, []);
 
-  React.useEffect(() => {
-    localStorage.setItem(MODULE_ORDER_KEY, JSON.stringify(moduleOrder));
-  }, [moduleOrder]);
-
   const handleReorder = React.useCallback((from: number, to: number) => {
     setModuleOrder((current) => {
       const next = [...current];
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
+      try {
+        localStorage.setItem(MODULE_ORDER_KEY, JSON.stringify(next));
+      } catch {}
       return next;
     });
   }, []);
 
-  const renderActiveModule = () => {
-    switch (activeModuleId) {
-      case "json-formatter":
-        return <JsonFormatter />;
-      case "translate-naming":
-        return <NamingConverter />;
-      case "image-converter":
-        return <ImageConverter />;
-      case "image-compressor":
-        return <ImageCompressor />;
-      case "watermark-removal":
-        return <WatermarkRemoval />;
-      case "pdf-to-images":
-        return <PdfToImages />;
-      case "video-to-gif":
-        return <VideoToGif />;
-      case "file-search":
-        return <FileSearch />;
-      case "document-converter":
-        return <DocumentConverter />;
-      case "screenshot-float":
-        return <ScreenshotFloat />;
-      case "color-picker":
-        return <ColorPicker />;
-      default: {
-        const plugin = snapshot.installed.find(
-          (item) => item.enabled && item.manifest.id === activeModuleId,
-        );
-        return plugin ? (
-          <PluginHost plugin={plugin} language={language} theme={theme} />
-        ) : (
-          <div className="empty-state">请选择一个工具</div>
-        );
-      }
-    }
-  };
+  const activePlugin = snapshot.installed.find(
+    (plugin) => plugin.enabled && plugin.manifest.id === activeModuleId,
+  );
 
   return (
     <div className="app">
       <Sidebar
         modules={modules}
         activeModule={activeModuleId}
-        settingsOpen={settingsOpen}
-        onModuleSelect={(id) => {
-          setActiveModuleId(id);
-          setSettingsOpen(false);
-        }}
+        onModuleSelect={setActiveModuleId}
         onModuleReorder={handleReorder}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenWorkbench={() => setActiveModuleId("")}
         updateStatus={updateStatus}
         onCheckUpdates={() => checkUpdates(true)}
       />
       <main className="main-content" key={language}>
-        {updateStatus !== "idle" && updateStatus !== "checking" && (
-          <div className={`update-banner ${updateStatus}`}>
-            <span className="update-message">
-              {updateStatus === "available"
-                ? `发现新版本 v${updateVersion}`
-                : updateStatus === "latest"
-                  ? "已是最新版本"
-                  : "检查更新失败"}
+        <div className="canvas-topbar">
+          <div className="canvas-breadcrumb">
+            <span className="canvas-breadcrumb-icon">
+              {activePlugin ? activePlugin.manifest.icon : <WorkbenchIcon size={13} />}
             </span>
-            {updateStatus === "available" && (
-              <button className="btn btn-primary btn-sm" onClick={openUpdate}>
-                前往下载
-              </button>
-            )}
-            <button className="update-close" onClick={dismissUpdate} aria-label="关闭">
-              ×
-            </button>
+            <span>{activePlugin ? activePlugin.manifest.name[language] : "工作台"}</span>
           </div>
-        )}
-        <div className="main-module">
-          {settingsOpen ? (
-            <SettingsPage
-              language={language}
-              theme={theme}
-              updateStatus={updateStatus}
-              updateVersion={updateVersion}
-              onLanguageChange={handleLanguageChange}
-              onThemeChange={handleThemeChange}
-              onCheckUpdates={() => checkUpdates(true)}
-              onOpenUpdate={openUpdate}
-              onClose={() => setSettingsOpen(false)}
-            />
-          ) : (
-            renderActiveModule()
+        </div>
+        <div className="canvas-content">
+          {updateStatus !== "idle" && updateStatus !== "checking" && (
+            <div className={`update-banner ${updateStatus}`}>
+              <span className="update-message">
+                {updateStatus === "available"
+                  ? `发现新版本 v${updateVersion}`
+                  : updateStatus === "latest"
+                    ? "已是最新版本"
+                    : "检查更新失败"}
+              </span>
+              {updateStatus === "available" && (
+                <button className="btn btn-primary btn-sm" onClick={openUpdate}>
+                  前往下载
+                </button>
+              )}
+              <button className="update-close" onClick={dismissUpdate} aria-label="关闭">
+                ×
+              </button>
+            </div>
           )}
+          <div className="main-module">
+            {activePlugin ? (
+              <PluginHost plugin={activePlugin} language={language} theme={theme} />
+            ) : (
+              <Workbench
+                language={language}
+                theme={theme}
+                updateStatus={updateStatus}
+                updateVersion={updateVersion}
+                onLanguageChange={handleLanguageChange}
+                onThemeChange={handleThemeChange}
+                onCheckUpdates={() => checkUpdates(true)}
+                onOpenUpdate={openUpdate}
+                onOpenPlugin={setActiveModuleId}
+              />
+            )}
+          </div>
+        </div>
+        <div className="canvas-statusbar">
+          <span>{modules.length} 个工具</span>
+          <span>插件按需加载</span>
+          <span>v{APP_VERSION}</span>
         </div>
       </main>
     </div>

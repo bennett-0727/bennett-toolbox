@@ -68,6 +68,7 @@ const patterns: Array<[RegExp, string]> = [
   [/^下载中 (\d+)%$/, "Downloading $1%"],
   [/^更新于 (.+)$/, "Updated $1"],
   [/^更新 v(.+)$/, "Update v$1"],
+  [/^(\d+) 个工具$/, "$1 tools"],
   [/^转换超时，请确认文件大小或 MarkItDown 安装状态$/, "Conversion timed out. Check the file size or MarkItDown installation."],
 ];
 

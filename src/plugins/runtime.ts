@@ -21,11 +21,25 @@ interface ApiState {
 interface LoadedPlugin {
   version: string;
   factory: PluginFactory;
+  baseUrl: string;
   instance: PluginInstance;
   api: PluginApi;
   state: ApiState;
   activated: boolean;
   mountCleanup?: (() => void) | null;
+}
+
+function pluginAssetUrl(baseUrl: string, relative: string): string {
+  if (
+    !relative ||
+    relative.startsWith("/") ||
+    relative.includes("\\") ||
+    /^[a-zA-Z]:/.test(relative) ||
+    relative.split("/").some((part) => part === ".." || part === "")
+  ) {
+    throw new Error("插件资产路径无效");
+  }
+  return new URL(relative, baseUrl).toString();
 }
 
 const loaded = new Map<string, LoadedPlugin>();
@@ -35,7 +49,7 @@ function currentTheme(): string {
   return document.documentElement.dataset.theme || "glass-dark";
 }
 
-function createApi(manifest: PluginManifest, state: ApiState): PluginApi {
+function createApi(manifest: PluginManifest, state: ApiState, baseUrl: string): PluginApi {
   return {
     apiVersion: 1,
     pluginId: manifest.id,
@@ -56,6 +70,11 @@ function createApi(manifest: PluginManifest, state: ApiState): PluginApi {
     onThemeChange(callback) {
       state.themeCallbacks.add(callback);
       return () => state.themeCallbacks.delete(callback);
+    },
+    assets: {
+      url(relative) {
+        return pluginAssetUrl(baseUrl, relative);
+      },
     },
     storage: {
       get(key) {
@@ -82,7 +101,9 @@ function createApi(manifest: PluginManifest, state: ApiState): PluginApi {
   };
 }
 
-async function loadFactory(manifest: PluginManifest): Promise<PluginFactory> {
+async function loadFactory(
+  manifest: PluginManifest,
+): Promise<{ factory: PluginFactory; baseUrl: string }> {
   const bundle = await readPluginBundle(manifest.id);
   if (bundle.manifest.id !== manifest.id || bundle.manifest.version !== manifest.version) {
     throw new Error("插件版本已变化，请重新加载");
@@ -102,7 +123,7 @@ async function loadFactory(manifest: PluginManifest): Promise<PluginFactory> {
   }
   await Promise.resolve();
   if (!factory) throw new Error("插件未注册入口");
-  return factory;
+  return { factory, baseUrl: bundle.baseUrl };
 }
 
 async function ensurePlugin(
@@ -116,18 +137,19 @@ async function ensurePlugin(
     entry = undefined;
   }
   if (!entry) {
-    const factory = await loadFactory(manifest);
+    const { factory, baseUrl } = await loadFactory(manifest);
     const state: ApiState = {
       locale,
       theme,
       localeCallbacks: new Set(),
       themeCallbacks: new Set(),
     };
-    const api = createApi(manifest, state);
+    const api = createApi(manifest, state, baseUrl);
     const instance = factory(api);
     entry = {
       version: manifest.version,
       factory,
+      baseUrl,
       instance,
       api,
       state,
