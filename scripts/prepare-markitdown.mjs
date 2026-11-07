@@ -40,7 +40,7 @@ if (PLATFORM === "mac" && ARCH === "arm64") {
   const python = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
   console.log(`Building MarkItDown with PyInstaller for ${PLATFORM}/${ARCH}...`);
   run(python, ["-m", "pip", "install", "--upgrade", "pip"]);
-  run(python, ["-m", "pip", "install", "markitdown[all]", "pyinstaller"]);
+  run(python, ["-m", "pip", "install", "markitdown[all]", "pyinstaller", "cryptography==46.0.3"]);
   const buildDir = path.join(ROOT, ".markitdown-build");
   run(python, [
     "-m",
