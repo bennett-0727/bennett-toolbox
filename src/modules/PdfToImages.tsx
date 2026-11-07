@@ -67,6 +67,15 @@ const AM = async (r, t, e, n, s) => {
     height: c.height
   };
 };
+const destroyPdfDocument = (doc: any) => {
+  try {
+    const task = doc?.loadingTask;
+    if (task && typeof task.destroy === "function") {
+      void task.destroy();
+    }
+  } catch {}
+};
+
 function PdfToImages() {
   const [r, t] = React.useState(null);
   const [e, n] = React.useState(xM);
@@ -85,10 +94,7 @@ function PdfToImages() {
     g(s);
   }, [s, g]);
   React.useEffect(() => () => {
-    var T;
-    if ((T = m.current) != null) {
-      T.destroy();
-    }
+    destroyPdfDocument(m.current);
   }, []);
   const y = React.useCallback(async T => {
     var O;
@@ -106,9 +112,7 @@ function PdfToImages() {
       return [];
     });
     try {
-      if ((O = m.current) != null) {
-        O.destroy();
-      }
+      destroyPdfDocument(m.current);
       const _ = await bM(T);
       const M = await getDocument({
         data: new Uint8Array(_)
@@ -202,9 +206,7 @@ function PdfToImages() {
       g(O);
       return [];
     });
-    if ((T = m.current) != null) {
-      T.destroy();
-    }
+    destroyPdfDocument(m.current);
     m.current = null;
     if (v.current) {
       v.current.value = "";

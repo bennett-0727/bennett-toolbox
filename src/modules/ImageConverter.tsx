@@ -1,6 +1,7 @@
 import * as React from "react";
 import JSZip from "jszip";
 import { GIFEncoder, quantize, applyPalette } from "gifenc";
+import { copyText, getFilePath } from "../shared/electron";
 
 const isElectron = typeof window !== "undefined" && typeof window.require == "function";
 const electron = isElectron ? window.require("electron") : null;
@@ -108,7 +109,7 @@ function ImageConverter() {
   }, []);
   const N = React.useCallback(async L => {
     const W = JI(L);
-    const B = L.path;
+    const B = getFilePath(L);
     let j;
     if (W === "heic") {
       if (!isElectron || !ipcRenderer || !B) {
@@ -351,7 +352,7 @@ function ImageConverter() {
   }, [h]);
   const G = React.useCallback(L => {
     if (L.svgCode) {
-      navigator.clipboard.writeText(L.svgCode);
+      void copyText(L.svgCode);
       p(L.id);
       setTimeout(() => p(null), 2000);
     }

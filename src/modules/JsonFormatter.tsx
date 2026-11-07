@@ -1,4 +1,5 @@
 import * as React from "react";
+import { copyText } from "../shared/electron";
 
 function JsonInput({
   value: r,
@@ -145,7 +146,7 @@ function JsonFormatter() {
   const c = React.useCallback(() => {
     if (e !== null) {
       const d = JSON.stringify(e, null, 2);
-      navigator.clipboard.writeText(d);
+      void copyText(d);
     }
   }, [e]);
   const u = React.useCallback(() => {

@@ -1,5 +1,6 @@
 import * as React from "react";
 import FormatItem from "../components/FormatItem";
+import { copyText } from "../shared/electron";
 
 const xP = r => {
   const t = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(r);
@@ -118,7 +119,7 @@ function ColorPicker() {
     }
   };
   const d = v => {
-    navigator.clipboard.writeText(v);
+    void copyText(v);
   };
   const f = () => {
     n([]);

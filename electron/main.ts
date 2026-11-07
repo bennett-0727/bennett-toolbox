@@ -432,6 +432,11 @@ electron.ipcMain.handle("get-desktop-sources", async () => {
     return [];
   }
 });
+electron.ipcMain.handle("copy-text-to-clipboard", async (_event, text: unknown) => {
+  if (typeof text !== "string") return false;
+  await electron.clipboard.writeText(text);
+  return true;
+});
 electron.ipcMain.handle("copy-image-to-clipboard", async (_event, dataUrl: unknown) => {
   if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/png;base64,")) {
     return false;

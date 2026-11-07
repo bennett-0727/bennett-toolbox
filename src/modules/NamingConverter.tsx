@@ -1,4 +1,5 @@
 import * as React from "react";
+import { copyText } from "../shared/electron";
 
 const MODE_COPY = {
   "zh-to-en": {
@@ -110,7 +111,7 @@ function NamingConverter() {
     }
   }, [y]);
   const A = React.useCallback((N, D) => {
-    navigator.clipboard.writeText(N);
+    void copyText(N);
     m(D);
     setTimeout(() => m(null), 2000);
   }, []);

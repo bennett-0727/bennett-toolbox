@@ -1,4 +1,5 @@
 import * as React from "react";
+import { copyText, getFilePath } from "../shared/electron";
 
 const AP = new Set(["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "html", "htm", "txt", "csv", "json", "xml", "zip", "epub", "jpg", "jpeg", "png", "gif", "webp", "wav", "mp3"]);
 const EP = r => {
@@ -87,11 +88,12 @@ function DocumentConverter() {
     N.preventDefault();
     const D = N.dataTransfer.files[0];
     if (D) {
-      if (!D.path) {
+      const P = getFilePath(D);
+      if (!P) {
         i("无法读取拖入文件路径，请使用“选择文件”按钮");
         return;
       }
-      w(D.path, D.name, D.size);
+      w(P, D.name, D.size);
     }
   }, [w]);
   const x = React.useCallback(async () => {
@@ -150,7 +152,7 @@ function DocumentConverter() {
   }, [r]);
   const A = React.useCallback(async () => {
     if (e) {
-      await navigator.clipboard.writeText(e);
+      await copyText(e);
       u(true);
     }
   }, [e]);
