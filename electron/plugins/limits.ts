@@ -1,0 +1,4 @@
+export const PLUGIN_ZIP_MAX_BYTES = 20 * 1024 * 1024;
+export const PLUGIN_UNZIPPED_MAX_BYTES = 50 * 1024 * 1024;
+export const PLUGIN_MAX_ENTRIES = 200;
+export const PLUGIN_REGISTRY_MAX_BYTES = 1024 * 1024;

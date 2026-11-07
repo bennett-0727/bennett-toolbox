@@ -2,6 +2,7 @@ import * as React from "react";
 import { LANGUAGES, type Language } from "../i18n";
 import type { Theme } from "../theme";
 import { APP_VERSION } from "../shared/version";
+import PluginManagerCard from "./PluginManagerCard";
 
 interface SettingsPageProps {
   language: Language;
@@ -100,6 +101,14 @@ function SettingsPage({
               </button>
             ))}
           </div>
+        </section>
+
+        <section className="settings-card plugins">
+          <div className="settings-card-head">
+            <h2>插件</h2>
+            <p>按需安装扩展工具</p>
+          </div>
+          <PluginManagerCard language={language} />
         </section>
 
         <section className="settings-card updates">

@@ -4,6 +4,9 @@ import * as fs from "fs";
 import * as path from "path";
 import heicConvert from "heic-convert";
 import { translate } from "../src/i18n/messages";
+import { registerPluginIpc } from "./plugins/ipc";
+import { cleanupPluginStaging } from "./plugins/state";
+import { compareVersions } from "./plugins/version";
 
 if (process.env.E2E_DISABLE_GPU === "1") {
   electron.app.disableHardwareAcceleration();
@@ -11,20 +14,6 @@ if (process.env.E2E_DISABLE_GPU === "1") {
 }
 
 const UPDATE_REPO = "bennett-0727/bennett-toolbox";
-
-function parseVersion(value: string): number[] {
-  return value.replace(/^v/i, "").split(".").map((part) => Number.parseInt(part, 10) || 0);
-}
-
-function compareVersions(a: string, b: string): number {
-  const left = parseVersion(a);
-  const right = parseVersion(b);
-  for (let index = 0; index < 3; index += 1) {
-    const diff = (left[index] || 0) - (right[index] || 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
 
 async function checkForUpdates() {
   const controller = new AbortController();
@@ -842,7 +831,10 @@ electron.ipcMain.on("capture-selection-cancel", () => {
     selectionWindow = null;
   }
 });
+registerPluginIpc();
+
 electron.app.whenReady().then(() => {
+  cleanupPluginStaging();
   createMainWindow();
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) {

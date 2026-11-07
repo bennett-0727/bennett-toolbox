@@ -1,6 +1,6 @@
 # Bennett Toolbox
 
-多功能工具箱桌面应用，基于 Electron + React + TypeScript，内置 11 个常用工具。
+多功能工具箱桌面应用，基于 Electron + React + TypeScript，内置 11 个常用工具，并支持从独立插件仓库按需安装扩展工具。
 
 ![Bennett Toolbox 主界面](docs/screenshots/01-overview.png)
 
@@ -16,6 +16,8 @@
 - 文档转 Markdown
 - 截图悬浮
 - 屏幕取色
+- 插件管理：安装、启用、停用、常驻/按需、更新与卸载
+- 示例插件：文本统计 `bennett.text-stats`
 
 ## 功能截图
 
@@ -47,6 +49,15 @@
 
 ![浅色玻璃主题](docs/screenshots/13-overview-light.png)
 
+### 插件
+
+- 设置页“插件”卡片从独立插件仓库读取 registry，支持安装、启用/停用、常驻/按需、更新与卸载
+- 插件包为 ZIP，包含 `plugin.json` 与 IIFE `main.js`，安装到用户数据目录后由应用加载
+- 常驻插件在启动时预加载，按需插件首次打开时加载；停用或卸载时执行清理
+- 首个示例插件 `bennett.text-stats` 提供字符、单词、行数、字节与阅读时长统计
+- 插件仓库：https://github.com/bennett-0727/bennett-toolbox-plugins
+- 插件在受信渲染进程中运行，安装包使用 SHA-256 校验；仅从插件仓库的 GitHub Release 下载
+
 ## 版本更新
 
 - 应用启动时读取 GitHub Releases，自动检测是否有新版本
@@ -67,6 +78,8 @@
 - `npx vite build` 成功
 - 浏览器 e2e：3/3 通过
 - Electron 打包版功能 e2e：54/54 通过（11 个模块 + 设置页 + 侧边栏 + 主进程 IPC）
+- 插件单元测试：6/6 通过
+- 插件安装/加载/停用/更新/安全拒绝 e2e：2/2 通过
 - Electron 打包版冒烟 e2e：7/7 通过
 - `npm run build:electron` 成功
 
@@ -79,6 +92,8 @@ npm run dev              # 前端开发服务器 http://127.0.0.1:5173
 npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
 npm run test:electron    # Electron 功能测试（54 项，需先构建；CI 跳过 7 项屏幕用例）
+npm run test:unit        # 插件规则单元测试（6 项）
+npm run test:plugins     # 插件安装/加载/安全 e2e（2 项，需先构建）
 npm run test:electron:smoke  # Electron 冒烟测试（7 项）
 ```
 
@@ -97,6 +112,7 @@ ELECTRON_APP_PATH="$PWD/release/Bennett Toolbox-darwin-arm64/Bennett Toolbox.app
 
 ```
 ├── electron/main.ts          # 主进程：窗口、IPC、HEIC、MarkItDown、截图
+├── electron/plugins/         # 插件校验、安装、状态与 IPC
 ├── src/main.tsx              # React 入口
 ├── src/App.tsx               # 模块注册表、切换、拖拽排序持久化
 ├── src/components/Sidebar.tsx

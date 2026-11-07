@@ -1832,7 +1832,7 @@ test("屏幕适配：1000x700 与 1200x760 无横向溢出", async () => {
   }));
   assert.ok(settingsOverflow.doc <= 1, `设置页横向溢出 ${settingsOverflow.doc}px`);
   assert.ok(settingsOverflow.main <= 1, `设置页主区域横向溢出 ${settingsOverflow.main}px`);
-  assert.equal(settingsOverflow.cards, 3);
+  assert.equal(settingsOverflow.cards, 4);
   const themeGrid = await page.evaluate(() => {
     const grid = document.querySelector(".theme-options");
     const options = [...document.querySelectorAll(".theme-option")];

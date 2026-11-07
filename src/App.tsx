@@ -4,6 +4,9 @@ import type { ModuleInfo } from "./shared/types";
 import { applyLanguage, getInitialLanguage, type Language } from "./i18n";
 import { applyTheme, getInitialTheme, type Theme } from "./theme";
 import SettingsPage from "./components/SettingsPage";
+import PluginHost from "./plugins/PluginHost";
+import { usePlugins } from "./plugins/PluginsContext";
+import { syncPluginLocale, syncPluginTheme } from "./plugins/runtime";
 import JsonFormatter from "./modules/JsonFormatter";
 import NamingConverter from "./modules/NamingConverter";
 import ImageConverter from "./modules/ImageConverter";
@@ -17,7 +20,7 @@ import ScreenshotFloat from "./modules/ScreenshotFloat";
 import ColorPicker from "./modules/ColorPicker";
 
 const MODULES: ModuleInfo[] = [
-  { id: "json-formatter", name: "JSON 格式化", icon: "{ }" },
+  { id: "json-formatter", name: "JSON 格式化", icon: "{ }", source: "builtin" },
   { id: "translate-naming", name: "变量命名", icon: "Aa" },
   { id: "image-converter", name: "图片转换", icon: "🖼️" },
   { id: "image-compressor", name: "图片压缩", icon: "ZIP" },
@@ -32,27 +35,28 @@ const MODULES: ModuleInfo[] = [
 
 const MODULE_ORDER_KEY = "bennett-module-order";
 
-function loadModuleOrder(): ModuleInfo[] {
+function loadModuleOrder(): string[] {
+  const builtinIds = MODULES.map((module) => module.id);
   try {
     const saved = localStorage.getItem(MODULE_ORDER_KEY);
     if (saved) {
-      const savedIds: string[] = JSON.parse(saved);
-      const ordered = savedIds
-        .map((id) => MODULES.find((module) => module.id === id))
-        .filter(Boolean) as ModuleInfo[];
-      const missing = MODULES.filter((module) => !savedIds.includes(module.id));
-      return [...ordered, ...missing];
+      const savedIds = JSON.parse(saved);
+      if (Array.isArray(savedIds)) {
+        const ordered = savedIds.filter((id): id is string => typeof id === "string");
+        return [...ordered, ...builtinIds.filter((id) => !ordered.includes(id))];
+      }
     }
   } catch (error) {
     console.error("加载模块顺序失败:", error);
   }
-  return MODULES;
+  return builtinIds;
 }
 
 type UpdateStatus = "idle" | "checking" | "latest" | "available" | "error";
 
 function App() {
-  const [modules, setModules] = React.useState<ModuleInfo[]>(loadModuleOrder);
+  const { snapshot } = usePlugins();
+  const [moduleOrder, setModuleOrder] = React.useState<string[]>(loadModuleOrder);
   const [activeModuleId, setActiveModuleId] = React.useState("json-formatter");
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [language, setLanguageState] = React.useState<Language>(getInitialLanguage);
@@ -60,6 +64,52 @@ function App() {
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
   const [updateVersion, setUpdateVersion] = React.useState("");
   const [updateUrl, setUpdateUrl] = React.useState("");
+
+  const pluginModules = React.useMemo<ModuleInfo[]>(
+    () =>
+      snapshot.installed
+        .filter((plugin) => plugin.enabled)
+        .map((plugin) => ({
+          id: plugin.manifest.id,
+          name: plugin.manifest.name[language],
+          icon: plugin.manifest.icon,
+          source: "plugin" as const,
+          version: plugin.manifest.version,
+        })),
+    [snapshot.installed, language],
+  );
+
+  const modules = React.useMemo(() => {
+    const byId = new Map<string, ModuleInfo>();
+    for (const module of MODULES) byId.set(module.id, module);
+    for (const module of pluginModules) byId.set(module.id, module);
+    return moduleOrder
+      .map((id) => byId.get(id))
+      .filter((module): module is ModuleInfo => Boolean(module));
+  }, [moduleOrder, pluginModules]);
+
+  React.useEffect(() => {
+    setModuleOrder((previous) => {
+      const builtinIds = MODULES.map((module) => module.id);
+      const known = new Set([...builtinIds, ...pluginModules.map((module) => module.id)]);
+      const next = previous.filter((id) => known.has(id));
+      for (const module of pluginModules) {
+        if (!next.includes(module.id)) next.push(module.id);
+      }
+      for (const id of builtinIds) {
+        if (!next.includes(id)) next.push(id);
+      }
+      return next.length === previous.length && next.every((id, index) => id === previous[index])
+        ? previous
+        : next;
+    });
+  }, [pluginModules]);
+
+  React.useEffect(() => {
+    if (!modules.some((module) => module.id === activeModuleId)) {
+      setActiveModuleId(modules[0]?.id || "json-formatter");
+    }
+  }, [modules, activeModuleId]);
 
   const checkUpdates = React.useCallback(async (manual: boolean) => {
     if (typeof window === "undefined" || typeof window.require !== "function") return;
@@ -100,6 +150,14 @@ function App() {
     applyTheme(theme);
   }, [theme]);
 
+  React.useEffect(() => {
+    syncPluginLocale(language);
+  }, [language]);
+
+  React.useEffect(() => {
+    syncPluginTheme(theme);
+  }, [theme]);
+
   const handleThemeChange = React.useCallback((next: Theme) => {
     applyTheme(next);
     setThemeState(next);
@@ -111,11 +169,11 @@ function App() {
   }, []);
 
   React.useEffect(() => {
-    localStorage.setItem(MODULE_ORDER_KEY, JSON.stringify(modules.map((module) => module.id)));
-  }, [modules]);
+    localStorage.setItem(MODULE_ORDER_KEY, JSON.stringify(moduleOrder));
+  }, [moduleOrder]);
 
   const handleReorder = React.useCallback((from: number, to: number) => {
-    setModules((current) => {
+    setModuleOrder((current) => {
       const next = [...current];
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
@@ -147,8 +205,16 @@ function App() {
         return <ScreenshotFloat />;
       case "color-picker":
         return <ColorPicker />;
-      default:
-        return <div className="empty-state">请选择一个工具</div>;
+      default: {
+        const plugin = snapshot.installed.find(
+          (item) => item.enabled && item.manifest.id === activeModuleId,
+        );
+        return plugin ? (
+          <PluginHost plugin={plugin} language={language} theme={theme} />
+        ) : (
+          <div className="empty-state">请选择一个工具</div>
+        );
+      }
     }
   };
 

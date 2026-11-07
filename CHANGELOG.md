@@ -2,6 +2,23 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.0] - 2026-11-07
+
+### Added
+
+- 通用插件框架：插件 ZIP 包、manifest/registry 校验、SHA-256 校验、安全解压、版本化安装与状态持久化
+- 设置页“插件”管理卡片：安装、启用/停用、常驻/按需、更新、卸载、刷新 registry 与打开插件目录
+- 进程内受信插件运行时：IIFE 注册、挂载/卸载、语言/主题订阅、命名空间存储、错误边界
+- 独立插件仓库 `bennett-toolbox-plugins` 与示例插件 `bennett.text-stats`（文本统计）
+- 插件构建、ZIP 打包、registry 生成与 tag 发布 workflow
+- 插件单元测试与安装/加载/安全拒绝 Electron e2e
+
+### Changed
+
+- 侧栏模块顺序支持插件 id，插件可按需加载或设为常驻
+- 设置页由三个卡片扩展为四个卡片，插件卡片在窄窗口保持单列无横向溢出
+- 应用版本提升到 1.2.0
+
 ## [1.1.3] - 2026-11-07
 
 ### Added

@@ -29,9 +29,10 @@
 - 名称：Bennett Toolbox
 - 技术栈：Electron 45、React 19.3.1、TypeScript 7、Vite 8
 - 运行时：Node.js >= 24.8.0（验证环境 26.13.0），包管理器 npm
-- 测试：浏览器 `npm run test:e2e`；Electron 功能 `npm run test:electron`（54 项，含设置页英文扫描、主题持久化与响应式）；打包版通过 `ELECTRON_APP_PATH` 指向 `.app` 可执行文件
+- 测试：浏览器 `npm run test:e2e`；Electron 功能 `npm run test:electron`（54 项，含设置页英文扫描、主题持久化与响应式）；插件规则 `npm run test:unit`（6 项）；插件安装/加载/安全 `npm run test:plugins`（2 项）；打包版通过 `ELECTRON_APP_PATH` 指向 `.app` 可执行文件
+- 插件：独立仓库 `bennett-0727/bennett-toolbox-plugins`，registry 通过 GitHub Release 分发；插件运行在受信渲染进程，安装包使用 SHA-256 校验
 - 屏幕适配：验证 1000×700 与 1200×760 无横向溢出，英文侧栏不截断，设置页 1120px 以下单列
-- 设置页：侧边栏“设置”入口，含外观（主题预览）、语言、版本与更新；选择工具自动关闭
+- 设置页：侧边栏“设置”入口，含外观（主题预览）、语言、插件管理与版本更新；选择工具自动关闭
 - 更新检查：读取 GitHub `bennett-0727/bennett-toolbox` 的 Releases；仅检测与跳转，不自动下载/安装
 - 主题：`glass-dark` / `glass-light` / `glass-aurora` / `glass-ocean` / `glass-sunset`，`html[data-theme]` 驱动，localStorage key `bennett-theme`；彩色皮肤通过 `--accent-rgb` 等令牌换色，新表面必须使用玻璃配方
 - 校验：`npm run typecheck`、`npm run build`、`npm run build:electron`

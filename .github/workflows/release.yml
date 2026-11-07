@@ -122,6 +122,9 @@ jobs:
       - name: Run browser e2e
         run: npm run test:e2e
 
+      - name: Run plugin unit tests
+        run: npm run test:unit
+
   test-electron:
     name: Electron e2e (macOS x64)
     runs-on: macos-15-intel
@@ -181,6 +184,9 @@ jobs:
       - name: Run Electron e2e
         run: node tests/electron.full.mjs
 
+      - name: Run plugin e2e
+        run: npm run test:plugins
+
   test-electron-windows:
     name: Electron e2e (Windows x64)
     runs-on: windows-latest
@@ -227,6 +233,9 @@ jobs:
 
       - name: Run Electron e2e
         run: node tests/electron.full.mjs
+
+      - name: Run plugin e2e
+        run: npm run test:plugins
 
   release:
     name: Publish Release
