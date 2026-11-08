@@ -1056,22 +1056,35 @@ test("截图悬浮：Esc 取消框选", { skip: SKIP_SCREEN }, async () => {
   await page.waitForFunction(() => document.querySelectorAll(".screenshot-card").length === 0);
 });
 
-test("截图悬浮：权限拒绝提示", { skip: SKIP_SCREEN }, async () => {
+test("截图悬浮：权限拒绝提示与重新检测", { skip: SKIP_SCREEN }, async () => {
   await app.evaluate(({ ipcMain }) => {
-    ipcMain.removeHandler("check-screen-permission");
-    ipcMain.handle("check-screen-permission", async () => "denied");
+    ipcMain.removeHandler("get-desktop-sources");
+    ipcMain.handle("get-desktop-sources", async () => []);
   });
   await page.reload();
   await openModule("截图悬浮");
   await page.waitForSelector(".permission-warning");
   await waitForText(".permission-warning", "denied");
+  await waitForText(".permission-warning", "重新检测");
 
-  await app.evaluate(({ ipcMain, systemPreferences }) => {
-    ipcMain.removeHandler("check-screen-permission");
-    ipcMain.handle("check-screen-permission", async () =>
-      process.platform === "darwin" ? systemPreferences.getMediaAccessStatus("screen") : "granted",
-    );
+  await app.evaluate(({ ipcMain, desktopCapturer }) => {
+    ipcMain.removeHandler("get-desktop-sources");
+    ipcMain.handle("get-desktop-sources", async () => {
+      const sources = await desktopCapturer.getSources({
+        types: ["screen", "window"],
+        thumbnailSize: { width: 320, height: 180 },
+      });
+      return sources.map((source) => ({
+        id: source.id,
+        name: source.name,
+        thumbnail: source.thumbnail.toDataURL(),
+        appIcon: source.appIcon?.toDataURL() || null,
+      }));
+    });
   });
+  await page.locator(".permission-warning .permission-recheck-btn").click();
+  await page.waitForSelector(".source-item", { timeout: 30000 });
+  assert.equal(await page.locator(".permission-warning").count(), 0);
 });
 
 test("截图悬浮：屏幕源获取失败", { skip: SKIP_SCREEN }, async () => {
