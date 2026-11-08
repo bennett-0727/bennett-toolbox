@@ -88,6 +88,7 @@ before(async () => {
   const binary = process.platform === "win32" ? "fake" : "#!/bin/sh\necho hello component\n";
   const componentZip = new JSZip();
   componentZip.file(process.platform === "win32" ? "markitdown.exe" : "markitdown", binary);
+  componentZip.file("filler.bin", crypto.randomBytes(256 * 1024));
   const zipBuffer = await componentZip.generateAsync({ type: "nodebuffer" });
   fs.writeFileSync(path.join(componentDir, asset), zipBuffer);
   const hash = crypto.createHash("sha256").update(zipBuffer).digest("hex");
@@ -99,8 +100,20 @@ before(async () => {
       response.writeHead(404).end();
       return;
     }
-    response.writeHead(200);
-    response.end(fs.readFileSync(file));
+    const data = fs.readFileSync(file);
+    response.writeHead(200, { "Content-Length": data.byteLength });
+    const chunkSize = Math.max(1, Math.ceil(data.byteLength / 16));
+    let offset = 0;
+    const timer = setInterval(() => {
+      const next = data.subarray(offset, offset + chunkSize);
+      offset += next.byteLength;
+      response.write(next);
+      if (offset >= data.byteLength) {
+        clearInterval(timer);
+        response.end();
+      }
+    }, 30);
+    response.on("close", () => clearInterval(timer));
   });
   await new Promise((resolve) => componentServer.listen(0, "127.0.0.1", resolve));
   componentBaseUrl = `http://127.0.0.1:${componentServer.address().port}`;
@@ -234,7 +247,21 @@ test("下载 MarkItDown 组件并显示已安装", async () => {
   const component = page.locator(".plugin-row").filter({ hasText: "文档转换组件" });
   await component.waitFor();
   assert.match(await component.innerText(), /未安装/);
+
+  const progressSeen = [];
   await component.getByRole("button", { name: "下载组件" }).click();
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    const text = await component.innerText();
+    const match = text.match(/(?:下载中|安装中) (\d+)%/);
+    if (match) progressSeen.push(Number(match[1]));
+    if (text.includes("已安装") && !/下载中|安装中/.test(text)) break;
+    await page.waitForTimeout(50);
+  }
+  assert.ok(
+    progressSeen.some((percent) => percent > 20 && percent < 80),
+    `未观察到递增下载进度: ${progressSeen.join(",")}`,
+  );
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".plugin-row")].some(
       (el) => el.textContent?.includes("文档转换组件") && el.textContent.includes("已安装"),

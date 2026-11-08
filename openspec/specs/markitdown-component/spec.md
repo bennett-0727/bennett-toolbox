@@ -32,3 +32,22 @@ TBD - created by archiving change add-markitdown-component. Update Purpose after
 
 - **WHEN** 组件安装完成
 - **THEN** 文档转换使用组件路径，无需重启应用
+
+### Requirement: 组件下载进度与失败恢复
+
+组件下载 MUST 按实际接收字节数报告进度，不得只发送固定阶段值；下载超时时间 SHALL 不少于 10 分钟。下载、校验或解压失败时，系统 MUST 保留已安装的旧组件并返回可读错误。
+
+#### Scenario: 下载进度
+
+- **WHEN** 用户下载约 118MB 的组件
+- **THEN** 进度随已接收字节持续增长，不会长时间停留在同一百分比
+
+#### Scenario: 下载超时
+
+- **WHEN** 网络在 10 分钟内未完成组件下载
+- **THEN** 界面显示可读的超时提示，已安装组件仍可继续使用
+
+#### Scenario: 重新下载失败
+
+- **WHEN** 用户重新下载组件但校验或解压失败
+- **THEN** 旧的已安装组件不被删除，文档转换继续可用

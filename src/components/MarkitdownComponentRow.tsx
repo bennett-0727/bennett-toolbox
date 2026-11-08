@@ -63,7 +63,9 @@ function MarkitdownComponentRow() {
       </div>
       <div className="plugin-actions">
         {progress !== null ? (
-          <span className="plugin-progress">下载中 {progress}%</span>
+          <span className="plugin-progress">
+            {progress < 80 ? `下载中 ${progress}%` : `安装中 ${progress}%`}
+          </span>
         ) : (
           <button className="btn btn-primary btn-sm" onClick={() => void download()}>
             {status?.installed ? "重新下载" : "下载组件"}
