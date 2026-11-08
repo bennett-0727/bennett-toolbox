@@ -12,6 +12,7 @@
 - MCP 操作日志：JSONL 记录工具调用、耗时、错误与结果摘要，敏感字段脱敏并自动轮转
 - 补充 MCP 工具参考、客户端配置、日志与故障排查文档
 - MCP 独立发布：`mcp-v*` Release 提供 standalone、ZIP 与 SHA-256 校验文件
+- 新增 `bennett-toolbox-mcp` AI skill，提供工具路由、安全边界与排错指南
 
 ### Changed
 

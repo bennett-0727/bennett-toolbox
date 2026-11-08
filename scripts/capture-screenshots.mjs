@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { _electron as electron } from "playwright-core";
 import { preparePluginRegistry } from "../tests/helpers/plugin-fixtures.mjs";
 
@@ -18,6 +19,12 @@ fs.copyFileSync(path.join(FIX, "images/photo.png"), path.join(DEMO, "search/phot
 fs.copyFileSync(path.join(FIX, "documents/doc.txt"), path.join(DEMO, "doc.txt"));
 fs.writeFileSync(path.join(DEMO, "search/report-2026.txt"), "report content\n");
 fs.writeFileSync(path.join(DEMO, "search/sub/report-draft.md"), "nested report\n");
+const demoDb = path.join(DEMO, "demo.db");
+fs.rmSync(demoDb, { force: true });
+const demoDatabase = new DatabaseSync(demoDb);
+demoDatabase.exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, role TEXT)");
+demoDatabase.exec("INSERT INTO users (name, role) VALUES ('Alice', 'admin'), ('Bob', 'developer'), ('Carol', 'designer')");
+demoDatabase.close();
 
 const thumbPng = `data:image/png;base64,${fs.readFileSync(path.join(FIX, "images/photo.png")).toString("base64")}`;
 const thumbJpg = `data:image/jpeg;base64,${fs.readFileSync(path.join(FIX, "images/picture.jpg")).toString("base64")}`;
@@ -47,8 +54,18 @@ await page.evaluate(async () => {
     const result = await ipc.invoke("plugins:install", { id: plugin.id });
     if (!result?.ok) throw new Error(result?.error || `install failed: ${plugin.id}`);
   }
+  const optional = [
+    "bennett.timestamp-tools",
+    "bennett.markdown-preview",
+    "bennett.qr-tools",
+    "bennett.sqlite-viewer",
+  ];
+  for (const id of optional) {
+    const result = await ipc.invoke("plugins:install", { id });
+    if (!result?.ok) throw new Error(result?.error || `install failed: ${id}`);
+  }
 });
-await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 11);
+await page.waitForFunction(() => document.querySelectorAll(".nav-item").length === 15);
 
 async function setLanguage(label, value) {
   await page.locator(".workbench-nav").click();
@@ -216,6 +233,26 @@ await page.waitForFunction(
   () => document.querySelector(".color-value-large")?.textContent === "#3366FF",
 );
 await shot("12-color-picker.png");
+
+await openModule("SQLite 查看器");
+await page.locator('.btp-sqlite-app input[type="file"]').setInputFiles(demoDb);
+await page.waitForSelector(".btp-sqlite-results", { timeout: 30000 });
+await page.locator(".btp-sqlite-object-name").filter({ hasText: /^users$/ }).click();
+await page.waitForSelector(".btp-sqlite-pager", { timeout: 20000 });
+await shot("16-sqlite-viewer.png");
+
+await openModule("Markdown / Mermaid");
+await page.waitForSelector(".btp-md-diagram svg", { timeout: 30000 });
+await shot("17-markdown-mermaid.png");
+
+await openModule("二维码工具");
+await page.waitForSelector(".btp-qr canvas", { timeout: 20000 });
+await shot("18-qr-tools.png");
+
+await openModule("时间与 Cron");
+await page.locator(".btp-time-tabs button", { hasText: "Cron" }).click();
+await page.waitForSelector(".btp-time-list code", { timeout: 20000 });
+await shot("19-time-cron.png");
 
 await page.locator(".workbench-nav").click();
 await page.waitForSelector(".workbench-page");

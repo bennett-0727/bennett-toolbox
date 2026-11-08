@@ -39,6 +39,17 @@
 | **工作台** | 默认进入工作台，安装、卸载、停用或打开插件；顶部/底部状态栏常驻，工具占满主画布。<br><img src="docs/screenshots/15-workbench.png" width="560" /> |
 | **工作台设置** | 工作台内直接切换深色、浅色与彩色玻璃皮肤、界面语言与版本更新，不再有独立设置入口。<br><img src="docs/screenshots/14-settings.png" width="560" /> |
 
+### 可选开发者工具
+
+以下插件按需安装，不随“安装全部推荐工具”自动安装。
+
+| 工具 | 说明 |
+| --- | --- |
+| **时间与 Cron** | 时间戳解析、Cron 下次运行时间、IANA 时区转换。<br><img src="docs/screenshots/19-time-cron.png" width="560" /> |
+| **SQLite 查看器** | Schema 浏览、分页与快捷筛选、CodeMirror SQL 高亮/补全、历史/收藏、单表编辑与事务、全量导出。<br><img src="docs/screenshots/16-sqlite-viewer.png" width="560" /> |
+| **Markdown / Mermaid** | Markdown 实时预览、Mermaid 图表渲染，支持打开/下载 .md。<br><img src="docs/screenshots/17-markdown-mermaid.png" width="560" /> |
+| **二维码工具** | 生成 PNG 二维码，上传图片识别并复制结果。<br><img src="docs/screenshots/18-qr-tools.png" width="560" /> |
+
 ### 设置、语言与屏幕适配
 
 - 默认进入工作台，不自动加载插件；打开工具后占满主画布，侧栏与顶栏常驻；侧栏可收起为 64px 图标栏
@@ -75,6 +86,8 @@
 本地 AI 客户端可通过 stdio MCP 直接调用这些工具：
 
 完整工具参数、客户端配置、日志、安全与故障排查见 **[docs/mcp.md](docs/mcp.md)**。
+
+项目内提供 AI 使用指南 skill：`.qoder/skills/bennett-toolbox-mcp/SKILL.md`；复制到 `~/.qoder-cn/skills/` 可在其他项目复用。
 
 - `json_format`：格式化/压缩 JSON
 - `sqlite_query`：只读执行单条 SQL，限制返回行数，拒绝写语句
