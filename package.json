@@ -1,7 +1,7 @@
 {
   "name": "bennett-toolbox",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "多功能工具箱桌面应用",
   "author": "李海波 <bennettmail@163.com>",
   "license": "MIT",
