@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write
 
+# GitHub Release 资产下载不稳定时使用镜像；Electron 与打包工具仍按内置校验和验证。
+env:
+  ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+  ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+
 jobs:
   build:
     name: ${{ matrix.name }}
