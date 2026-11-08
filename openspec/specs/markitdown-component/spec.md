@@ -51,3 +51,22 @@ TBD - created by archiving change add-markitdown-component. Update Purpose after
 
 - **WHEN** 用户重新下载组件但校验或解压失败
 - **THEN** 旧的已安装组件不被删除，文档转换继续可用
+
+### Requirement: 组件跨版本复用
+
+组件查找 MUST 优先使用当前应用版本目录；当前版本不存在时，SHALL 复用最近安装且包含有效 `component.json` 与可执行文件的旧版本组件。跨版本复用时，状态显示 MUST 返回实际组件版本。成功安装新版本组件后，系统 SHALL 清理其他版本目录。
+
+#### Scenario: 升级后继续使用旧组件
+
+- **WHEN** 应用从 2.0.0 升级到 2.0.1 且 2.0.0 组件已安装
+- **THEN** 组件状态显示已安装与 v2.0.0，文档转换无需重新下载即可使用
+
+#### Scenario: 安装新版本后清理
+
+- **WHEN** 用户为新应用版本成功安装组件
+- **THEN** 新组件写入当前版本目录，其他版本目录被清理
+
+#### Scenario: 无可复用组件
+
+- **WHEN** 当前版本与旧版本目录均无有效组件
+- **THEN** 状态显示未安装，并提供下载入口

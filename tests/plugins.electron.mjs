@@ -269,3 +269,38 @@ test("下载 MarkItDown 组件并显示已安装", async () => {
   );
   assert.match(await component.innerText(), /已安装/);
 });
+
+test("组件跨版本复用", async () => {
+  const componentsRoot = path.join(tempDir, "user-data", "components", "markitdown");
+  fs.rmSync(componentsRoot, { recursive: true, force: true });
+  const oldDir = path.join(componentsRoot, "1.0.0");
+  fs.mkdirSync(oldDir, { recursive: true });
+  const binary = process.platform === "win32" ? "markitdown.exe" : "markitdown";
+  fs.writeFileSync(
+    path.join(oldDir, binary),
+    process.platform === "win32" ? "fake" : "#!/bin/sh\necho old component\n",
+    { mode: 0o755 },
+  );
+  fs.writeFileSync(
+    path.join(oldDir, "component.json"),
+    JSON.stringify(
+      { name: "fixture", version: "1.0.0", sha256: "0".repeat(64), installedAt: new Date().toISOString() },
+      null,
+      2,
+    ),
+  );
+
+  await page.reload();
+  await page.waitForSelector(".workbench-nav");
+  const component = page.locator(".plugin-row").filter({ hasText: "文档转换组件" });
+  await component.waitFor();
+  const status = await page.evaluate(async () =>
+    window.require("electron").ipcRenderer.invoke("components:markitdown-status"),
+  );
+  assert.equal(status.ok, true);
+  assert.equal(status.status.installed, true);
+  assert.equal(status.status.version, "1.0.0");
+  assert.ok(status.status.path.includes("1.0.0"));
+  assert.match(await component.innerText(), /已安装/);
+  assert.match(await component.innerText(), /v1\.0\.0/);
+});

@@ -29,40 +29,104 @@ function assetName(): string {
   return `markitdown-${process.platform}-${process.arch}.zip`;
 }
 
+function componentsRoot(): string {
+  return path.join(electron.app.getPath("userData"), "components", "markitdown");
+}
+
 function componentDir(version = electron.app.getVersion()): string {
-  return path.join(electron.app.getPath("userData"), "components", "markitdown", version);
+  return path.join(componentsRoot(), version);
 }
 
 function componentBinary(version = electron.app.getVersion()): string {
   return path.join(componentDir(version), binaryName());
 }
 
-export function markitdownComponentPath(): string | null {
+interface ResolvedComponent {
+  path: string;
+  version: string;
+}
+
+function readComponentVersion(dir: string): string | null {
   try {
-    const binary = componentBinary();
-    return fs.existsSync(binary) ? binary : null;
+    const raw = JSON.parse(fs.readFileSync(path.join(dir, "component.json"), "utf8"));
+    if (typeof raw?.version === "string" && /^\d+\.\d+\.\d+/.test(raw.version)) {
+      return raw.version;
+    }
+  } catch {}
+  return null;
+}
+
+function resolveInstalledComponent(): ResolvedComponent | null {
+  const appVersion = electron.app.getVersion();
+  const currentDir = componentDir(appVersion);
+  const currentBinary = path.join(currentDir, binaryName());
+  if (fs.existsSync(currentBinary)) {
+    return { path: currentBinary, version: readComponentVersion(currentDir) ?? appVersion };
+  }
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(componentsRoot(), { withFileTypes: true });
   } catch {
     return null;
   }
+  const candidates = entries
+    .filter((entry) => entry.isDirectory() && entry.name !== appVersion)
+    .map((entry) => {
+      const dir = path.join(componentsRoot(), entry.name);
+      let mtime = 0;
+      try {
+        mtime = fs.statSync(dir).mtimeMs;
+      } catch {}
+      return { dir, name: entry.name, mtime };
+    })
+    .sort((left, right) => right.mtime - left.mtime);
+
+  for (const candidate of candidates) {
+    const version = readComponentVersion(candidate.dir);
+    if (!version || version !== candidate.name) continue;
+    const binary = path.join(candidate.dir, binaryName());
+    if (fs.existsSync(binary)) return { path: binary, version };
+  }
+  return null;
+}
+
+async function cleanupOtherComponents(currentVersion: string): Promise<void> {
+  try {
+    const entries = await fs.promises.readdir(componentsRoot(), { withFileTypes: true });
+    await Promise.all(
+      entries
+        .filter((entry) => entry.isDirectory() && entry.name !== currentVersion)
+        .map((entry) =>
+          fs.promises
+            .rm(path.join(componentsRoot(), entry.name), { recursive: true, force: true })
+            .catch(() => {}),
+        ),
+    );
+  } catch {}
+}
+
+export function markitdownComponentPath(): string | null {
+  return resolveInstalledComponent()?.path ?? null;
 }
 
 function existingMarkitdown(): string | null {
   const env = process.env.MARKITDOWN_BIN;
   if (env && fs.existsSync(env)) return env;
-  const component = markitdownComponentPath();
-  if (component) return component;
+  const component = resolveInstalledComponent();
+  if (component) return component.path;
   const binary = path.basename(componentBinary());
   const legacy = path.join(process.resourcesPath || "", "markitdown", binary);
   return fs.existsSync(legacy) ? legacy : null;
 }
 
 export async function getMarkitdownStatus(): Promise<MarkitdownStatus> {
-  const component = markitdownComponentPath();
+  const component = resolveInstalledComponent();
   const available = existingMarkitdown();
   return {
     installed: Boolean(component),
     available: Boolean(available),
-    version: electron.app.getVersion(),
+    version: component?.version ?? electron.app.getVersion(),
     path: available,
     assetName: assetName(),
     platform: process.platform,
@@ -197,6 +261,7 @@ export async function downloadMarkitdownComponent(): Promise<MarkitdownStatus> {
     throw error;
   }
   const binary = componentBinary(version);
+  await cleanupOtherComponents(version);
   broadcast("components:markitdown-progress", { percent: 95 });
   if (process.env.BENNETT_SKIP_COMPONENT_WARMUP === "1") {
     broadcast("components:markitdown-progress", { percent: 100 });
