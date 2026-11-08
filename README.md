@@ -70,6 +70,61 @@
 - 侧边栏版本号或设置页“检查更新”可手动检查；有新版本时显示提示条和“前往下载”
 - 仅检测与跳转，不自动下载或安装；只允许打开本仓库的 GitHub 链接
 
+## MCP 试点
+
+本地 AI 客户端可通过 stdio MCP 直接调用这些工具：
+
+完整工具参数、客户端配置、日志、安全与故障排查见 **[docs/mcp.md](docs/mcp.md)**。
+
+- `json_format`：格式化/压缩 JSON
+- `sqlite_query`：只读执行单条 SQL，限制返回行数，拒绝写语句
+- `markitdown_convert`：调用本机 MarkItDown 组件转换本地文档
+- `file_search`：按文件名递归搜索目录，限制深度与结果数
+- `time_convert`：epoch/ISO 时间在 IANA 时区间转换
+- `cron_next`：计算 Cron 表达式的下次运行时间
+- `qr_generate`：生成 PNG（MCP image）或 SVG 二维码
+- `encoding_convert`：Base64 / URL / Hex 编解码
+- `hash_text`：MD5/SHA1/SHA256/SHA512 与 HMAC-SHA256
+- `jwt_decode`：解码 JWT，可用 HMAC 密钥校验签名
+- `regex_test`：正则匹配、分组与替换
+- `text_diff`：unified diff 与增删行统计
+- `image_info`：读取图片格式、尺寸与大小
+- `image_convert`：转换 PNG/JPEG/WebP、质量控制与缩放，返回 MCP image
+
+启动服务（需要 Node.js 24+，仓库验证环境为 Node 26）：
+
+```bash
+npm run mcp
+```
+
+MCP 客户端配置示例（客户端需使用 Node 24+ 的绝对路径）：
+
+```json
+{
+  "mcpServers": {
+    "bennett-toolbox": {
+      "command": "/path/to/node",
+      "args": ["/path/to/bennett-toolbox/mcp/server.mjs"],
+      "env": {
+        "MARKITDOWN_BIN": "/optional/path/to/markitdown"
+      }
+    }
+  }
+}
+```
+
+`MARKITDOWN_BIN` 可省略，服务会自动查找已安装的文档转换组件。SQLite 工具始终以只读方式打开数据库，只允许单条查询。
+
+### MCP 操作日志
+
+每次工具调用会写入 JSONL 日志，包含工具名、参数摘要、耗时、成功状态与错误；secret/key/token/password 自动脱敏，长文本截断。默认位置：
+
+- macOS：`~/Library/Logs/bennett-toolbox/mcp.log`
+- Windows：`%LOCALAPPDATA%\bennett-toolbox\logs\mcp.log`
+- Linux：`~/.local/state/bennett-toolbox/mcp.log`
+
+可用 `BENNETT_MCP_LOG_DIR` 覆盖目录；超过 5MB 自动轮转为 `mcp.log.1`。
+
 ## 技术栈
 
 - Electron 45
@@ -85,7 +140,8 @@
 - 浏览器 e2e：3/3 通过
 - Electron 打包版功能 e2e：55/55 通过（安装 11 个官方插件后覆盖全部模块 + 设置页 + 侧边栏展开收起 + 主进程 IPC）
 - 插件单元测试：6/6 通过
-- 插件安装/加载/停用/更新/安全拒绝/组件下载/并发状态/单实例 e2e：5/5 通过
+- 插件安装/加载/停用/更新/安全拒绝/组件下载/跨版本复用/并发状态/单实例 e2e：6/6 通过
+- MCP：14 个工具（JSON、SQLite 只读、MarkItDown、文件搜索、时间/Cron、二维码、编码/哈希/JWT、正则/Diff、图片）与操作日志集成测试 9/9 通过
 - 浏览器壳层 e2e：3/3 通过（工作台、内嵌设置、语言/主题）
 - Electron 冒烟：空壳与安装 11 个插件两种模式通过
 - `npm run build:electron` 成功
@@ -103,7 +159,9 @@ npm run test:e2e         # 浏览器冒烟测试（3 项）
 npm run build:all        # 构建前端与主进程
 npm run test:electron    # Electron 功能测试（55 项；需先构建并准备插件仓库）
 npm run test:unit        # 插件规则单元测试（6 项）
-npm run test:plugins     # 插件安装/加载/安全/组件下载/并发状态/单实例 e2e（5 项，需先构建）
+npm run test:plugins     # 插件安装/加载/安全/组件下载/跨版本复用/并发状态/单实例 e2e（6 项，需先构建）
+npm run test:mcp         # MCP：14 个工具、操作日志与 9 项集成测试
+npm run mcp              # 启动 stdio MCP 服务（Node 24+）
 npm run test:electron:smoke  # Electron 冒烟；设置 BENNETT_PLUGIN_REGISTRY_DIR 时安装 11 个插件
 ```
 

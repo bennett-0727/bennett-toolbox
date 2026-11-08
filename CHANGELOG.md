@@ -2,6 +2,20 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+
+- MCP 试点：stdio 服务提供 JSON 格式化、SQLite 只读查询与 MarkItDown 转换三个工具
+- MCP 扩展：文件搜索、时间/Cron、二维码生成工具
+- MCP 扩展：编码/哈希/JWT、正则/Diff、图片信息与转换工具
+- MCP 操作日志：JSONL 记录工具调用、耗时、错误与结果摘要，敏感字段脱敏并自动轮转
+- 补充 MCP 工具参考、客户端配置、日志与故障排查文档
+
+### Changed
+
+- MarkItDown 组件支持跨应用版本复用，升级后无需重新下载；安装新版本后清理旧组件目录
+
 ## [2.0.1] - 2026-11-08
 
 ### Added

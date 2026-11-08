@@ -15,6 +15,8 @@
     "build:all": "npm run build && npm run build:electron",
     "test:unit": "node --test tests/unit/plugins/*.test.mjs",
     "test:plugins": "node tests/plugins.electron.mjs && node tests/plugins.race.electron.mjs",
+    "test:mcp": "node --test tests/mcp.pilot.mjs",
+    "mcp": "node mcp/server.mjs",
     "test:electron": "node tests/electron.full.mjs",
     "test:electron:smoke": "node tests/electron.smoke.mjs",
     "package:mac": "electron-builder --mac --publish never",
@@ -32,16 +34,23 @@
   },
   "devDependencies": {
     "@e2e-dev/web": "^0.15.5",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
+    "cron-parser": "^5.10.4",
+    "diff": "^9.0.0",
     "e2e": "^0.23.0",
     "electron": "^45.2.3",
     "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
+    "luxon": "^3.7.2",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.5",
     "typescript": "^7.0.2",
-    "vite": "^8.3.6"
+    "vite": "^8.3.6",
+    "zod": "^4.6.7"
   },
   "engines": {
     "node": ">=24.8.0"
