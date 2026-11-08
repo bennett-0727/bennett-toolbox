@@ -14,7 +14,7 @@ import { createTwoFilesPatch, diffLines } from "diff";
 
 const execFileAsync = promisify(execFile);
 const SERVER_NAME = "bennett-toolbox";
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = process.env.BENNETT_MCP_VERSION || "0.2.0";
 
 let sharpLoader = null;
 function loadSharp() {

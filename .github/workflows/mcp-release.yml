@@ -1,0 +1,78 @@
+name: Publish MCP Server
+
+on:
+  push:
+    tags:
+      - "mcp-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish MCP server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "26.13.0"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run MCP tests
+        run: npm run test:mcp
+
+      - name: Build MCP artifacts
+        shell: bash
+        run: |
+          version="0.2.0"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#mcp-v}"
+          fi
+          MCP_VERSION="$version" npm run build:mcp
+
+      - name: Upload MCP artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-server
+          path: dist-mcp/*
+          if-no-files-found: error
+
+      - name: Publish MCP release
+        if: startsWith(github.ref, 'refs/tags/mcp-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-mcp/*.mjs
+            dist-mcp/*.zip
+            dist-mcp/*.sha256
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          make_latest: "false"
+          body: |
+            ## Bennett Toolbox MCP Server
+
+            独立 MCP stdio 服务，包含 14 个工具：
+
+            - JSON 格式化
+            - SQLite 只读查询
+            - MarkItDown 文档转换
+            - 文件搜索、时间/Cron、二维码
+            - 编码/哈希/JWT、正则/Diff
+            - 图片信息与转换
+
+            安装：
+
+            1. 下载 `bennett-mcp-*.zip`，解压后执行 `npm install && npm start`（包含 sharp，图片工具可用）。
+            2. 或直接使用 `bennett-mcp-*.mjs`：`node bennett-mcp-*.mjs`（图片工具需要另行安装 sharp）。
+
+            MCP 客户端配置把 `command` 指向 Node 24+，`args` 指向 `server.mjs` 或 standalone `.mjs`。
+
+            日志默认写入 `~/Library/Logs/bennett-toolbox/mcp.log`（macOS），详细文档见仓库 `docs/mcp.md`。

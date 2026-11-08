@@ -115,6 +115,14 @@ MCP 客户端配置示例（客户端需使用 Node 24+ 的绝对路径）：
 
 `MARKITDOWN_BIN` 可省略，服务会自动查找已安装的文档转换组件。SQLite 工具始终以只读方式打开数据库，只允许单条查询。
 
+### 下载发布版
+
+MCP 服务独立发布，不影响桌面应用版本：https://github.com/bennett-0727/bennett-toolbox/releases?q=mcp-v
+
+- `bennett-mcp-*.zip`：解压后执行 `npm install && npm start`，包含 sharp，图片工具可用。
+- `bennett-mcp-*.mjs`：直接 `node bennett-mcp-*.mjs`；图片工具需要另行安装 sharp。
+- 每个产物附带 `.sha256` 校验文件。
+
 ### MCP 操作日志
 
 每次工具调用会写入 JSONL 日志，包含工具名、参数摘要、耗时、成功状态与错误；secret/key/token/password 自动脱敏，长文本截断。默认位置：

@@ -39,6 +39,25 @@ npm run mcp
 - 修改配置后需要重启客户端或重新加载 MCP 服务。
 - 客户端未显示工具时，先检查服务 stderr 与日志文件。
 
+### 下载发布版
+
+MCP 服务通过独立 `mcp-v*` Release 发布，不影响桌面应用版本。在 GitHub Releases 筛选 `mcp-v`：
+
+- ZIP：解压后执行 `npm install && npm start`（包含 sharp，图片工具可用）。把客户端 `args` 指向解压目录内的 `server.mjs`。
+- Standalone：直接下载 `bennett-mcp-*.mjs`，客户端 `args` 指向该文件；图片工具需要另行安装 sharp。
+- 使用 `.sha256` 文件校验下载内容。
+
+```json
+{
+  "mcpServers": {
+    "bennett-toolbox": {
+      "command": "/absolute/path/to/node",
+      "args": ["/absolute/path/to/extracted/server.mjs"]
+    }
+  }
+}
+```
+
 ## 3. 工具参考
 
 所有工具成功时返回 MCP content；参数错误或执行失败时返回 `isError: true` 与可读文本。本地路径建议使用绝对路径。

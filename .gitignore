@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-electron/
+dist-mcp/
 .e2e/
 .DS_Store
 *.log

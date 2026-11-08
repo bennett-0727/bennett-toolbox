@@ -17,6 +17,7 @@
     "test:plugins": "node tests/plugins.electron.mjs && node tests/plugins.race.electron.mjs",
     "test:mcp": "node --test tests/mcp.pilot.mjs",
     "mcp": "node mcp/server.mjs",
+    "build:mcp": "node scripts/build-mcp.mjs",
     "test:electron": "node tests/electron.full.mjs",
     "test:electron:smoke": "node tests/electron.smoke.mjs",
     "package:mac": "electron-builder --mac --publish never",

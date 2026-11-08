@@ -11,6 +11,7 @@
 - MCP 扩展：编码/哈希/JWT、正则/Diff、图片信息与转换工具
 - MCP 操作日志：JSONL 记录工具调用、耗时、错误与结果摘要，敏感字段脱敏并自动轮转
 - 补充 MCP 工具参考、客户端配置、日志与故障排查文档
+- MCP 独立发布：`mcp-v*` Release 提供 standalone、ZIP 与 SHA-256 校验文件
 
 ### Changed
 
