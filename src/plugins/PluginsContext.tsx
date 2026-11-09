@@ -46,9 +46,24 @@ export function PluginsProvider({ children }: { children: React.ReactNode }) {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [progress, setProgress] = React.useState<Record<string, PluginInstallProgress>>({});
   const previousInstalled = React.useRef<Map<string, string>>(new Map());
+  const autoRefreshStarted = React.useRef(false);
 
   const applySnapshot = React.useCallback((next: PluginSnapshot) => {
     setSnapshot(next);
+  }, []);
+
+  const refreshSilently = React.useCallback(async (isCancelled: () => boolean) => {
+    try {
+      const next = await refreshRegistry();
+      if (isCancelled()) return;
+      setSnapshot((current) => ({
+        ...current,
+        available: next.available,
+        registryUpdatedAt: next.registryUpdatedAt,
+      }));
+    } catch (reason) {
+      if (!isCancelled()) console.warn("自动刷新插件 registry 失败", reason);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -61,7 +76,11 @@ export function PluginsProvider({ children }: { children: React.ReactNode }) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (cancelled) return;
+        setLoading(false);
+        if (autoRefreshStarted.current) return;
+        autoRefreshStarted.current = true;
+        void refreshSilently(() => cancelled);
       });
     const removeChanged = onPluginsChanged(applySnapshot);
     const removeProgress = onInstallProgress((event) => {
@@ -79,7 +98,7 @@ export function PluginsProvider({ children }: { children: React.ReactNode }) {
       removeChanged();
       removeProgress();
     };
-  }, [applySnapshot]);
+  }, [applySnapshot, refreshSilently]);
 
   React.useEffect(() => {
     const current = new Map<string, string>();

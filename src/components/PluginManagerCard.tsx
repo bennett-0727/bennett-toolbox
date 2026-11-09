@@ -47,17 +47,9 @@ function PluginManagerCard({
     openFolder,
   } = usePlugins();
   const [localError, setLocalError] = React.useState<string | null>(null);
-  const autoRefreshed = React.useRef(false);
   const registryTime = snapshot.registryUpdatedAt
     ? formatRegistryTime(snapshot.registryUpdatedAt, language)
     : null;
-
-  React.useEffect(() => {
-    if (autoRefreshed.current || loading || busy) return;
-    if (snapshot.available.length > 0 || snapshot.registryUpdatedAt) return;
-    autoRefreshed.current = true;
-    void refresh().catch(() => {});
-  }, [loading, busy, snapshot.available.length, snapshot.registryUpdatedAt, refresh]);
 
   const latestById = React.useMemo(() => {
     const map = new Map<string, RegistryPlugin>();

@@ -35,7 +35,21 @@ export async function listPlugins(): Promise<PluginSnapshot> {
   return result.snapshot || EMPTY_SNAPSHOT;
 }
 
-export async function refreshRegistry(): Promise<PluginSnapshot> {
+let refreshInFlight: Promise<PluginSnapshot> | null = null;
+
+export function refreshRegistry(): Promise<PluginSnapshot> {
+  if (refreshInFlight) return refreshInFlight;
+  const request = runRefreshRegistry();
+  refreshInFlight = request;
+  void request
+    .finally(() => {
+      if (refreshInFlight === request) refreshInFlight = null;
+    })
+    .catch(() => {});
+  return request;
+}
+
+async function runRefreshRegistry(): Promise<PluginSnapshot> {
   const result = await invoke("plugins:refresh-registry");
   if (!result.ok) throw new Error(result.error || "刷新插件 registry 失败");
   return result.snapshot || EMPTY_SNAPSHOT;
